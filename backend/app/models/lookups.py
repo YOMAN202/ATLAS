@@ -23,3 +23,14 @@ class Region(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class InventoryTransactionType(Base, TimestampMixin):
+    """FR-2.1: "updated by every relevant transaction (receipt, pick,
+    transfer, adjustment, return)" — those five values populate this table."""
+
+    __tablename__ = "inventory_transaction_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
