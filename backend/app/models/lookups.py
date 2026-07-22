@@ -34,3 +34,14 @@ class InventoryTransactionType(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class POStatus(Base, TimestampMixin):
+    """FR-1.2 lifecycle: draft -> submitted -> confirmed -> fulfilled -> closed."""
+
+    __tablename__ = "po_statuses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    sort_order: Mapped[int] = mapped_column(nullable=False)
