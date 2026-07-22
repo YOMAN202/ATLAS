@@ -45,3 +45,37 @@ class POStatus(Base, TimestampMixin):
     code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     sort_order: Mapped[int] = mapped_column(nullable=False)
+
+
+class OrderStatus(Base, TimestampMixin):
+    """FR-4.2 order lifecycle, including partial fulfillment and
+    backorders (BR-2): pending -> allocated -> partially_fulfilled /
+    backordered -> fulfilled -> cancelled."""
+
+    __tablename__ = "order_statuses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    sort_order: Mapped[int] = mapped_column(nullable=False)
+
+
+class ReturnReason(Base, TimestampMixin):
+    """FR-4.3: returns with reason codes."""
+
+    __tablename__ = "return_reasons"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class ReturnDisposition(Base, TimestampMixin):
+    """BR-5: failed inspection routes to a separate disposition (e.g.
+    sellable, quarantine, scrap, return_to_supplier)."""
+
+    __tablename__ = "return_dispositions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
