@@ -5,3 +5,8 @@
 -- DDL (OLAP, Phase 4).
 CREATE DATABASE IF NOT EXISTS atlas_oltp CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 CREATE DATABASE IF NOT EXISTS atlas_olap CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+
+-- Phase 1 test suite runs real Alembic migrations against a dedicated
+-- schema (never atlas_oltp itself), so constraint tests can freely
+-- create/rollback data without touching dev data.
+CREATE DATABASE IF NOT EXISTS atlas_oltp_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;

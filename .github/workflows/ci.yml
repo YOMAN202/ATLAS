@@ -10,9 +10,28 @@ jobs:
   backend:
     name: Backend — lint + test
     runs-on: ubuntu-latest
+    # DB-dependent tests (Phase 1: constraint + migration tests) need a
+    # real MySQL 8 to run against — per TDD §12 / Master Prompt §11,
+    # "ETL and API tests run against a containerized MySQL instance spun
+    # up in the CI job."
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: changeme_root
+          MYSQL_DATABASE: atlas_oltp_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -pchangeme_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     defaults:
       run:
         working-directory: backend
+    env:
+      TEST_DATABASE_URL_OLTP: mysql+pymysql://root:changeme_root@127.0.0.1:3306/atlas_oltp_test
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +47,14 @@ jobs:
 
       - name: Format check (black)
         run: black --check .
+
+      - name: Migration up/down/up smoke test
+        env:
+          DATABASE_URL_OLTP: mysql+pymysql://root:changeme_root@127.0.0.1:3306/atlas_oltp_test
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
 
       - name: Test (pytest)
         run: pytest
