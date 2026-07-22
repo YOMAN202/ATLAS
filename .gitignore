@@ -1,0 +1,46 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Python (backend / etl / simulation)
+__pycache__/
+*.pyc
+venv/
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / Next.js (frontend)
+node_modules/
+.next/
+next-env.d.ts
+
+# Build output
+dist/
+build/
+out/
+
+# Temporary files
+*.tmp
+*.bak
+tmp/
+
+# MySQL data volume (bind-mounted local dev data, if any)
+docker/mysql/data/
