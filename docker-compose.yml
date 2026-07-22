@@ -30,6 +30,8 @@ services:
       context: ./backend
     container_name: atlas_backend
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     depends_on:
@@ -43,6 +45,8 @@ services:
       context: ./frontend
     container_name: atlas_frontend
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "3000:3000"
     depends_on:
