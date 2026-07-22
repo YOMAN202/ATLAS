@@ -8,7 +8,7 @@ implementation of that stated principle, plus the "regions, vehicle types"
 static reference data the Roadmap Phase 1 deliverables call for.
 """
 
-from sqlalchemy import String
+from sqlalchemy import Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -79,3 +79,28 @@ class ReturnDisposition(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class VehicleType(Base, TimestampMixin):
+    """FR-3.1: carrier/fleet master with vehicle types, capacity, and cost
+    profiles — capacity/cost are attributes of the vehicle type, not the
+    individual carrier."""
+
+    __tablename__ = "vehicle_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    capacity_units: Mapped[int] = mapped_column(nullable=False)
+    cost_per_mile: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)
+
+
+class ShipmentStatus(Base, TimestampMixin):
+    """FR-3.3 lifecycle: created -> picked -> in_transit -> delivered / exception."""
+
+    __tablename__ = "shipment_statuses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    sort_order: Mapped[int] = mapped_column(nullable=False)

@@ -4,10 +4,6 @@ order_lines carries fulfillment_warehouse_id (set once allocated) at the
 LINE grain rather than a single warehouse_id on the order, because BR-2
 partial fulfillment means different lines of the same order can be
 allocated from, and shipped out of, different warehouses.
-
-A shipment_id FK is added to order_lines in the transportation commit,
-once the shipments table exists to reference (Alembic/FK ordering: a
-table cannot FK-reference a table that doesn't exist yet).
 """
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, UniqueConstraint
@@ -54,3 +50,6 @@ class OrderLine(Base, TimestampMixin):
     unit_price: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)
     unit_cost: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)
     fulfillment_warehouse_id: Mapped[int | None] = mapped_column(ForeignKey("warehouses.id"))
+    # Set once shipped. Added here (rather than in the orders commit)
+    # because it FK-references shipments, created in this same commit.
+    shipment_id: Mapped[int | None] = mapped_column(ForeignKey("shipments.id"))
