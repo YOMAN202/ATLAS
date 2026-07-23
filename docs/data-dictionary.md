@@ -293,3 +293,39 @@ FR-3.3 status-history/audit-trail.
 - **Polymorphic soft-reference:** `inventory_transactions.source_reference_type/id` is the one relationship in this schema not enforced as a DB-level FK (ADR-002's one documented exception), because MySQL cannot FK a single column to multiple target tables.
 - **Lookup tables beyond TDD §4.1's literal list:** `regions`, `inventory_transaction_types`, `po_statuses`, `order_statuses`, `shipment_statuses`, `return_reasons`, `return_dispositions`, `vehicle_types` implement the TDD's own stated principle ("status fields as constrained enumerations, not free text") and the Roadmap's explicit call for "status codes, regions, vehicle types" reference-data loaders — they are the implementation of that principle, not new scope.
 - **`created_at`/`updated_at` on every table:** added structurally now because Phase 5's incremental ETL (ADR-008) requires indexed watermark columns; retrofitting after Phase 1 would be a destructive schema change.
+
+---
+
+## Phase 2 addendum: Domain Service business-rule semantics
+
+The schema above doesn't (and shouldn't) encode the following — they're
+business-logic decisions made in `backend/app/domains/` and documented
+here since no lookup table's `code`/`name` column can express them.
+
+- **`po_statuses` lifecycle (BR-1):** `DRAFT` -> `SUBMITTED` -> `CONFIRMED`
+  -> `FULFILLED` -> `CLOSED`. A PO reaches `FULFILLED` only when every
+  line's `received_quantity` is within `PO_RECEIPT_TOLERANCE` (2%
+  under-receipt allowed — a value not specified in the SRS/TDD, confirmed
+  with the project owner at the Phase 2 review gate; see
+  `procurement/service.py`) of `ordered_quantity`. Only *accepted*
+  quantity (`received_quantity - quality_rejected_quantity`) is ever
+  added to `inventory_positions.quantity_on_hand`.
+- **`order_statuses` derivation (BR-2, FR-4.2):** computed from the sum
+  of each order's lines' `allocated_quantity`/`backordered_quantity` —
+  `PENDING` (nothing attempted yet) -> `ALLOCATED` (fully allocated) /
+  `BACKORDERED` (nothing at all could be allocated) / a mixed result is
+  `PARTIALLY_FULFILLED`. See `orders/service.py:compute_order_status`,
+  a pure function tested independently of the database.
+- **`inventory_positions.quantity_reserved` is a soft hold, not a
+  physical pick:** allocating an order line increments `quantity_reserved`
+  (FR-4.2) without moving `quantity_on_hand` or writing an
+  `inventory_transactions` row — nothing has physically moved yet. Phase
+  2 does not wire order allocation through to shipment dispatch (not a
+  named Phase 2 deliverable), so the physical pick that would decrement
+  `quantity_on_hand` is left for whichever phase builds that dispatch flow.
+- **Zone choice is a caller decision, not a bin-picking algorithm:**
+  every function that touches inventory (receiving, allocating,
+  restocking a return) takes an explicit `warehouse_zone_id` /
+  `inventory_position_id` from its caller. FR-2.2 explicitly places
+  "advanced warehouse slotting and optimization" out of MVP scope, so no
+  Domain Service searches across zones for available stock.
