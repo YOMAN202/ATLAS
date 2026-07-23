@@ -1,10 +1,13 @@
 import os
 import subprocess
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
+
+from app.models import Customer, Product, Region, Supplier, Warehouse, WarehouseZone
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -64,3 +67,85 @@ def db_session(engine):
     session.close()
     outer_transaction.rollback()
     connection.close()
+
+
+# Shared master-data fixtures, used across constraint tests (tests/) and
+# domain-service tests (tests/domains/) alike — defined once here rather
+# than duplicated per test module.
+
+
+@pytest.fixture
+def region(db_session):
+    region = Region(code="TEST", name="Test Region")
+    db_session.add(region)
+    db_session.flush()
+    return region
+
+
+@pytest.fixture
+def warehouse(db_session, region):
+    warehouse = Warehouse(
+        warehouse_code="WH-TEST",
+        name="Test Warehouse",
+        region_id=region.id,
+        total_capacity_units=10000,
+    )
+    db_session.add(warehouse)
+    db_session.flush()
+    return warehouse
+
+
+@pytest.fixture
+def warehouse_zone(db_session, warehouse):
+    zone = WarehouseZone(
+        warehouse_id=warehouse.id,
+        zone_code="A1",
+        name="Zone A1",
+        zone_capacity_units=1000,
+    )
+    db_session.add(zone)
+    db_session.flush()
+    return zone
+
+
+@pytest.fixture
+def product(db_session):
+    product = Product(
+        sku="SKU-TEST",
+        name="Test Product",
+        unit_cost=Decimal("10.00"),
+        unit_price=Decimal("19.99"),
+    )
+    db_session.add(product)
+    db_session.flush()
+    return product
+
+
+@pytest.fixture
+def supplier(db_session):
+    supplier = Supplier(supplier_code="SUP-TEST", name="Test Supplier", default_lead_time_days=7)
+    db_session.add(supplier)
+    db_session.flush()
+    return supplier
+
+
+@pytest.fixture
+def customer(db_session, region):
+    customer = Customer(customer_code="CUST-TEST", name="Test Customer", region_id=region.id)
+    db_session.add(customer)
+    db_session.flush()
+    return customer
+
+
+@pytest.fixture
+def lookups(db_session):
+    """Seed every constrained-enumeration lookup table (status codes,
+    reason/disposition codes, transaction types, vehicle types) that
+    Domain Services resolve by business code. Domain-service tests depend
+    on this fixture explicitly rather than it being autouse, so plain
+    constraint tests don't pay for lookup rows they don't need."""
+
+    from app.seed.reference_data import seed_reference_data
+
+    seed_reference_data(db_session)
+    return db_session

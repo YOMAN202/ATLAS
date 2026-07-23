@@ -3,61 +3,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from app.models import (
-    InventoryPosition,
-    Product,
-    Region,
-    Supplier,
-    Warehouse,
-    WarehouseZone,
-)
-
-
-@pytest.fixture
-def region(db_session):
-    region = Region(code="TEST", name="Test Region")
-    db_session.add(region)
-    db_session.flush()
-    return region
-
-
-@pytest.fixture
-def warehouse(db_session, region):
-    warehouse = Warehouse(
-        warehouse_code="WH-TEST",
-        name="Test Warehouse",
-        region_id=region.id,
-        total_capacity_units=10000,
-    )
-    db_session.add(warehouse)
-    db_session.flush()
-    return warehouse
-
-
-@pytest.fixture
-def warehouse_zone(db_session, warehouse):
-    zone = WarehouseZone(
-        warehouse_id=warehouse.id,
-        zone_code="A1",
-        name="Zone A1",
-        zone_capacity_units=1000,
-    )
-    db_session.add(zone)
-    db_session.flush()
-    return zone
-
-
-@pytest.fixture
-def product(db_session):
-    product = Product(
-        sku="SKU-TEST",
-        name="Test Product",
-        unit_cost=Decimal("10.00"),
-        unit_price=Decimal("19.99"),
-    )
-    db_session.add(product)
-    db_session.flush()
-    return product
+from app.models import InventoryPosition, Product, Supplier, Warehouse
 
 
 # DQ-2 / Master Prompt §5: unique constraints on business keys.
