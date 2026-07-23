@@ -10,10 +10,12 @@ from app.domains.orders.service import (
     compute_order_status,
     create_customer,
     create_order,
+    mark_line_shipped,
 )
 from app.domains.shared.exceptions import EntityNotFoundError, InvalidStateTransitionError
 from app.domains.shared.lookups import get_code_by_id
-from app.models import OrderLine, OrderStatus, Product
+from app.domains.transportation.service import create_carrier, create_shipment
+from app.models import OrderLine, OrderStatus, Product, VehicleType
 
 NOW = datetime(2026, 1, 15, 9, 0, 0)
 
@@ -224,3 +226,79 @@ def test_compute_order_status_matrix(ordered, allocated, backordered, expected):
         for o, a, b in zip(ordered, allocated, backordered, strict=True)
     ]
     assert compute_order_status(lines) == expected
+
+
+@pytest.fixture
+def shipment(db_session, warehouse, customer, lookups):
+    vehicle_type = db_session.execute(
+        select(VehicleType).where(VehicleType.code == "VAN")
+    ).scalar_one()
+    carrier = create_carrier(
+        db_session,
+        carrier_code="CARR-ORD-TEST",
+        name="Test Carrier",
+        vehicle_type_id=vehicle_type.id,
+    )
+    return create_shipment(
+        db_session,
+        shipment_number="SHIP-ORD-TEST",
+        carrier_id=carrier.id,
+        origin_warehouse_id=warehouse.id,
+        destination_customer_id=customer.id,
+        occurred_at=NOW,
+    )
+
+
+# Dispatch: linking a fully-allocated line to the shipment fulfilling it.
+def test_mark_line_shipped(
+    db_session, pending_order, warehouse, warehouse_zone, product, lookups, shipment
+):
+    position = _stock(
+        db_session,
+        product=product,
+        warehouse=warehouse,
+        warehouse_zone=warehouse_zone,
+        quantity=100,
+    )
+    line = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == pending_order.id)
+    ).scalar_one()
+    allocate_order_line(db_session, order_line_id=line.id, inventory_position_id=position.id)
+
+    mark_line_shipped(db_session, order_line_id=line.id, shipment_id=shipment.id)
+
+    reloaded = db_session.get(OrderLine, line.id)
+    assert reloaded.shipment_id == shipment.id
+
+
+def test_mark_line_shipped_unallocated_line_raises(db_session, pending_order, shipment, lookups):
+    line = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == pending_order.id)
+    ).scalar_one()
+
+    with pytest.raises(InvalidStateTransitionError):
+        mark_line_shipped(db_session, order_line_id=line.id, shipment_id=shipment.id)
+
+
+def test_mark_line_shipped_unknown_shipment_raises(
+    db_session, pending_order, warehouse, warehouse_zone, product, lookups
+):
+    position = _stock(
+        db_session,
+        product=product,
+        warehouse=warehouse,
+        warehouse_zone=warehouse_zone,
+        quantity=100,
+    )
+    line = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == pending_order.id)
+    ).scalar_one()
+    allocate_order_line(db_session, order_line_id=line.id, inventory_position_id=position.id)
+
+    with pytest.raises(EntityNotFoundError):
+        mark_line_shipped(db_session, order_line_id=line.id, shipment_id=999999)
+
+
+def test_mark_line_shipped_unknown_line_raises(db_session, shipment, lookups):
+    with pytest.raises(EntityNotFoundError):
+        mark_line_shipped(db_session, order_line_id=999999, shipment_id=shipment.id)

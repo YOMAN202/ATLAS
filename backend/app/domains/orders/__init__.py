@@ -6,6 +6,11 @@ present (ADR-007). Writes inventory only through the inventory module's
 `reserve`/`release_reservation` — never touches InventoryPosition directly.
 """
 
-from app.domains.orders.service import allocate_order_line, create_customer, create_order
+from app.domains.orders.service import (
+    allocate_order_line,
+    create_customer,
+    create_order,
+    mark_line_shipped,
+)
 
-__all__ = ["allocate_order_line", "create_customer", "create_order"]
+__all__ = ["allocate_order_line", "create_customer", "create_order", "mark_line_shipped"]

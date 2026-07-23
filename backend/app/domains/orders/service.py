@@ -7,12 +7,12 @@ MVP scope, so which position to allocate from is the caller's decision
 (Phase 3 simulation, later the API), not a bin-picking algorithm here.
 
 Allocation reserves (`InventoryPosition.quantity_reserved`) rather than
-physically picking (`quantity_on_hand`). Nothing in the Roadmap's Phase 2
-deliverable list names order-to-shipment integration as in scope, and
-order_lines.shipment_id stays null until a later phase wires shipping —
-so the physical pick (decrementing on-hand, a ledger PICK transaction)
-is intentionally left for whichever phase builds that dispatch flow, not
-invented here.
+physically picking (`quantity_on_hand`) — the physical pick happens at
+dispatch time, via inventory.pick(), called by whoever creates the
+shipment (Phase 3's transportation generator). `mark_line_shipped` links
+a line to the shipment fulfilling it once that pick has happened; it
+does not alter order status — an order-level FULFILLED status derived
+from shipment completion is a future integration point, not built here.
 """
 
 from datetime import date
@@ -23,7 +23,15 @@ from sqlalchemy.orm import Session
 from app.domains.inventory.service import reserve
 from app.domains.shared.exceptions import EntityNotFoundError, InvalidStateTransitionError
 from app.domains.shared.lookups import get_id_by_code
-from app.models import Customer, InventoryPosition, Order, OrderLine, OrderStatus, Region
+from app.models import (
+    Customer,
+    InventoryPosition,
+    Order,
+    OrderLine,
+    OrderStatus,
+    Region,
+    Shipment,
+)
 
 
 def compute_order_status(lines: list[OrderLine]) -> str:
@@ -185,6 +193,39 @@ def allocate_order_line(
         session.execute(select(OrderLine).where(OrderLine.order_id == order.id)).scalars().all()
     )
     order.status_id = get_id_by_code(session, OrderStatus, compute_order_status(all_lines))
+    session.flush()
+
+    return line
+
+
+def mark_line_shipped(session: Session, *, order_line_id: int, shipment_id: int) -> OrderLine:
+    """Link a fully-allocated order line to the shipment fulfilling it.
+
+    Thin: validates the line has an allocated quantity and the shipment
+    exists, then sets shipment_id. Callers are expected to have already
+    converted the reservation into a physical pick via inventory.pick()
+    before calling this — this function does not touch inventory itself,
+    and it does not alter order status (see module docstring).
+
+    Raises:
+        EntityNotFoundError: unknown order line or shipment.
+        InvalidStateTransitionError: the line has no allocated quantity
+            to ship.
+    """
+
+    line = session.get(OrderLine, order_line_id)
+    if line is None:
+        raise EntityNotFoundError(f"OrderLine {order_line_id} does not exist")
+
+    if line.allocated_quantity <= 0:
+        raise InvalidStateTransitionError(
+            f"OrderLine {order_line_id} has no allocated quantity to ship"
+        )
+
+    if session.get(Shipment, shipment_id) is None:
+        raise EntityNotFoundError(f"Shipment {shipment_id} does not exist")
+
+    line.shipment_id = shipment_id
     session.flush()
 
     return line

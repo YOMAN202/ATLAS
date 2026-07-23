@@ -14,6 +14,7 @@ present (ADR-007).
 from app.domains.inventory.service import (
     create_product,
     get_or_create_position,
+    pick,
     record_transaction,
     release_reservation,
     reserve,
@@ -22,6 +23,7 @@ from app.domains.inventory.service import (
 __all__ = [
     "create_product",
     "get_or_create_position",
+    "pick",
     "record_transaction",
     "release_reservation",
     "reserve",

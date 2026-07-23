@@ -156,6 +156,55 @@ def record_transaction(
     return transaction
 
 
+def pick(
+    session: Session,
+    *,
+    inventory_position_id: int,
+    quantity: int,
+    occurred_at: datetime,
+    source_reference_type: str | None = None,
+    source_reference_id: int | None = None,
+) -> InventoryPosition:
+    """Convert a reservation into a physical pick: the point at which a
+    soft-held reservation (FR-4.2) becomes an actual, physically-moved
+    unit. Decrements quantity_reserved and, via record_transaction,
+    quantity_on_hand together (a PICK ledger transaction).
+
+    Raises:
+        EntityNotFoundError: unknown position.
+        InsufficientInventoryError: BR-2 — attempting to pick more than
+            is currently reserved at this position.
+    """
+
+    if quantity <= 0:
+        raise ValueError("quantity must be positive")
+
+    position = session.get(InventoryPosition, inventory_position_id)
+    if position is None:
+        raise EntityNotFoundError(f"InventoryPosition {inventory_position_id} does not exist")
+
+    if quantity > position.quantity_reserved:
+        raise InsufficientInventoryError(
+            f"Position {position.id}: only {position.quantity_reserved} reserved, "
+            f"cannot pick {quantity}",
+            rule="BR-2",
+        )
+
+    record_transaction(
+        session,
+        inventory_position_id=inventory_position_id,
+        transaction_type_code="PICK",
+        quantity_delta=-quantity,
+        occurred_at=occurred_at,
+        source_reference_type=source_reference_type,
+        source_reference_id=source_reference_id,
+    )
+    position.quantity_reserved -= quantity
+    session.flush()
+
+    return position
+
+
 def reserve(session: Session, *, inventory_position_id: int, quantity: int) -> InventoryPosition:
     """Soft-hold `quantity` units of on-hand stock against an open order
     (FR-4.2). Raises InsufficientInventoryError (BR-2) if it would reserve

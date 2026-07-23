@@ -6,6 +6,7 @@ import pytest
 from app.domains.inventory.service import (
     create_product,
     get_or_create_position,
+    pick,
     record_transaction,
     release_reservation,
     reserve,
@@ -212,3 +213,50 @@ def test_release_reservation_beyond_reserved_raises(db_session, position, lookup
 
     with pytest.raises(InsufficientInventoryError):
         release_reservation(db_session, inventory_position_id=position.id, quantity=11)
+
+
+# Dispatch: pick converts a reservation into a physical movement.
+def test_pick_decrements_reserved_and_on_hand(db_session, position, lookups):
+    record_transaction(
+        db_session,
+        inventory_position_id=position.id,
+        transaction_type_code="RECEIPT",
+        quantity_delta=50,
+        occurred_at=NOW,
+    )
+    reserve(db_session, inventory_position_id=position.id, quantity=20)
+
+    pick(db_session, inventory_position_id=position.id, quantity=20, occurred_at=NOW)
+
+    reloaded = db_session.get(InventoryPosition, position.id)
+    assert reloaded.quantity_on_hand == 30
+    assert reloaded.quantity_reserved == 0
+
+
+def test_pick_beyond_reserved_raises(db_session, position, lookups):
+    record_transaction(
+        db_session,
+        inventory_position_id=position.id,
+        transaction_type_code="RECEIPT",
+        quantity_delta=50,
+        occurred_at=NOW,
+    )
+    reserve(db_session, inventory_position_id=position.id, quantity=5)
+
+    with pytest.raises(InsufficientInventoryError):
+        pick(db_session, inventory_position_id=position.id, quantity=6, occurred_at=NOW)
+
+    # The rejected pick must not have partially applied.
+    reloaded = db_session.get(InventoryPosition, position.id)
+    assert reloaded.quantity_on_hand == 50
+    assert reloaded.quantity_reserved == 5
+
+
+def test_pick_non_positive_quantity_raises(db_session, position):
+    with pytest.raises(ValueError):
+        pick(db_session, inventory_position_id=position.id, quantity=0, occurred_at=NOW)
+
+
+def test_pick_unknown_position_raises(db_session, lookups):
+    with pytest.raises(EntityNotFoundError):
+        pick(db_session, inventory_position_id=999999, quantity=1, occurred_at=NOW)
