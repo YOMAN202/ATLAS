@@ -1,4 +1,5 @@
-"""Inventory domain — positions and the movement ledger (FR-2.1, FR-2.4; BR-2).
+"""Inventory domain — positions, the movement ledger (FR-2.1, FR-2.4; BR-2),
+and product master data.
 
 The only module that mutates InventoryPosition rows. Every other domain
 (procurement receiving, orders allocating, returns restocking) goes
@@ -11,6 +12,7 @@ present (ADR-007).
 """
 
 from app.domains.inventory.service import (
+    create_product,
     get_or_create_position,
     record_transaction,
     release_reservation,
@@ -18,6 +20,7 @@ from app.domains.inventory.service import (
 )
 
 __all__ = [
+    "create_product",
     "get_or_create_position",
     "record_transaction",
     "release_reservation",

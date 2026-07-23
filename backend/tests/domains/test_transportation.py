@@ -5,8 +5,12 @@ from sqlalchemy import select
 
 from app.domains.shared.exceptions import EntityNotFoundError, InvalidStateTransitionError
 from app.domains.shared.lookups import get_code_by_id
-from app.domains.transportation.service import advance_shipment_status, create_shipment
-from app.models import Carrier, Shipment, ShipmentStatus, VehicleType, Warehouse
+from app.domains.transportation.service import (
+    advance_shipment_status,
+    create_carrier,
+    create_shipment,
+)
+from app.models import Shipment, ShipmentStatus, VehicleType, Warehouse
 
 NOW = datetime(2026, 1, 15, 9, 0, 0)
 
@@ -16,10 +20,16 @@ def carrier(db_session, lookups):
     vehicle_type = db_session.execute(
         select(VehicleType).where(VehicleType.code == "VAN")
     ).scalar_one()
-    carrier = Carrier(carrier_code="CARR-1", name="Test Carrier", vehicle_type_id=vehicle_type.id)
-    db_session.add(carrier)
-    db_session.flush()
-    return carrier
+    return create_carrier(
+        db_session, carrier_code="CARR-1", name="Test Carrier", vehicle_type_id=vehicle_type.id
+    )
+
+
+def test_create_carrier_unknown_vehicle_type_raises(db_session, lookups):
+    with pytest.raises(EntityNotFoundError):
+        create_carrier(
+            db_session, carrier_code="CARR-BAD", name="Bad Carrier", vehicle_type_id=999999
+        )
 
 
 @pytest.fixture

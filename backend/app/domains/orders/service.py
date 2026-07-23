@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from app.domains.inventory.service import reserve
 from app.domains.shared.exceptions import EntityNotFoundError, InvalidStateTransitionError
 from app.domains.shared.lookups import get_id_by_code
-from app.models import InventoryPosition, Order, OrderLine, OrderStatus
+from app.models import Customer, InventoryPosition, Order, OrderLine, OrderStatus, Region
 
 
 def compute_order_status(lines: list[OrderLine]) -> str:
@@ -47,6 +47,44 @@ def compute_order_status(lines: list[OrderLine]) -> str:
     if total_allocated == 0 and total_backordered > 0:
         return "BACKORDERED"
     return "PARTIALLY_FULFILLED"
+
+
+def create_customer(
+    session: Session,
+    *,
+    customer_code: str,
+    name: str,
+    region_id: int,
+    email: str | None = None,
+    phone: str | None = None,
+    address_line1: str | None = None,
+    city: str | None = None,
+    state_province: str | None = None,
+    postal_code: str | None = None,
+    country: str | None = None,
+) -> Customer:
+    """Create a customer master record. Thin: validates the referenced
+    region exists, constructs, and persists."""
+
+    if session.get(Region, region_id) is None:
+        raise EntityNotFoundError(f"Region {region_id} does not exist")
+
+    customer = Customer(
+        customer_code=customer_code,
+        name=name,
+        region_id=region_id,
+        email=email,
+        phone=phone,
+        address_line1=address_line1,
+        city=city,
+        state_province=state_province,
+        postal_code=postal_code,
+        country=country,
+    )
+    session.add(customer)
+    session.flush()
+
+    return customer
 
 
 def create_order(

@@ -23,13 +23,44 @@ session both already do.
 """
 
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domains.shared.exceptions import EntityNotFoundError, InsufficientInventoryError
 from app.domains.warehousing.service import assert_zone_capacity_available
-from app.models import InventoryPosition, InventoryTransaction, InventoryTransactionType
+from app.models import InventoryPosition, InventoryTransaction, InventoryTransactionType, Product
+
+
+def create_product(
+    session: Session,
+    *,
+    sku: str,
+    name: str,
+    unit_cost: Decimal,
+    unit_price: Decimal,
+    category: str | None = None,
+    unit_of_measure: str = "EA",
+    is_active: bool = True,
+) -> Product:
+    """Create a product master record. Thin: validates nothing beyond
+    what the caller provides (no BR- rule governs product pricing at
+    creation time) — constructs and persists."""
+
+    product = Product(
+        sku=sku,
+        name=name,
+        unit_cost=unit_cost,
+        unit_price=unit_price,
+        category=category,
+        unit_of_measure=unit_of_measure,
+        is_active=is_active,
+    )
+    session.add(product)
+    session.flush()
+
+    return product
 
 
 def get_or_create_position(

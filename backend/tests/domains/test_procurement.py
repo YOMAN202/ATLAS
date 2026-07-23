@@ -8,6 +8,7 @@ from app.domains.procurement.service import (
     close_purchase_order,
     confirm_purchase_order,
     create_purchase_order,
+    create_supplier,
     mark_purchase_order_fulfilled,
     receive_purchase_order_line,
     submit_purchase_order,
@@ -49,6 +50,16 @@ def _first_line(db_session, po):
     return db_session.execute(
         select(PurchaseOrderLine).where(PurchaseOrderLine.purchase_order_id == po.id)
     ).scalar_one()
+
+
+def test_create_supplier(db_session):
+    supplier = create_supplier(
+        db_session, supplier_code="SUP-NEW", name="New Supplier", default_lead_time_days=10
+    )
+
+    assert supplier.id is not None
+    assert supplier.payment_terms_days == 30
+    assert supplier.is_active is True
 
 
 def test_create_purchase_order_starts_in_draft(db_session, draft_po):

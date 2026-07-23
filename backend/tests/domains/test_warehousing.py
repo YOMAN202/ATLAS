@@ -1,7 +1,12 @@
 import pytest
 
 from app.domains.shared.exceptions import EntityNotFoundError, ZoneCapacityExceededError
-from app.domains.warehousing.service import assert_zone_capacity_available, get_zone_occupied_units
+from app.domains.warehousing.service import (
+    assert_zone_capacity_available,
+    create_warehouse,
+    create_warehouse_zone,
+    get_zone_occupied_units,
+)
 from app.models import InventoryPosition
 
 
@@ -73,3 +78,47 @@ def test_non_positive_additional_quantity_is_a_noop(db_session, warehouse_zone):
 def test_unknown_zone_raises_not_found(db_session):
     with pytest.raises(EntityNotFoundError):
         assert_zone_capacity_available(db_session, 999999, 10)
+
+
+def test_create_warehouse(db_session, region):
+    warehouse = create_warehouse(
+        db_session,
+        warehouse_code="WH-NEW",
+        name="New Warehouse",
+        region_id=region.id,
+        total_capacity_units=5000,
+    )
+
+    assert warehouse.id is not None
+    assert warehouse.is_active is True
+
+
+def test_create_warehouse_unknown_region_raises(db_session):
+    with pytest.raises(EntityNotFoundError):
+        create_warehouse(
+            db_session,
+            warehouse_code="WH-BAD",
+            name="Bad Warehouse",
+            region_id=999999,
+            total_capacity_units=5000,
+        )
+
+
+def test_create_warehouse_zone(db_session, warehouse):
+    zone = create_warehouse_zone(
+        db_session,
+        warehouse_id=warehouse.id,
+        zone_code="B1",
+        name="Zone B1",
+        zone_capacity_units=500,
+    )
+
+    assert zone.id is not None
+    assert zone.warehouse_id == warehouse.id
+
+
+def test_create_warehouse_zone_unknown_warehouse_raises(db_session):
+    with pytest.raises(EntityNotFoundError):
+        create_warehouse_zone(
+            db_session, warehouse_id=999999, zone_code="B1", name="Zone B1", zone_capacity_units=500
+        )

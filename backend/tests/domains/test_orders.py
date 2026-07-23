@@ -5,7 +5,12 @@ import pytest
 from sqlalchemy import select
 
 from app.domains.inventory.service import get_or_create_position, record_transaction
-from app.domains.orders.service import allocate_order_line, compute_order_status, create_order
+from app.domains.orders.service import (
+    allocate_order_line,
+    compute_order_status,
+    create_customer,
+    create_order,
+)
 from app.domains.shared.exceptions import EntityNotFoundError, InvalidStateTransitionError
 from app.domains.shared.lookups import get_code_by_id
 from app.models import OrderLine, OrderStatus, Product
@@ -64,6 +69,20 @@ def pending_order(db_session, customer, product, lookups):
             }
         ],
     )
+
+
+def test_create_customer(db_session, region):
+    customer = create_customer(
+        db_session, customer_code="CUST-NEW", name="New Customer", region_id=region.id
+    )
+
+    assert customer.id is not None
+    assert customer.region_id == region.id
+
+
+def test_create_customer_unknown_region_raises(db_session):
+    with pytest.raises(EntityNotFoundError):
+        create_customer(db_session, customer_code="CUST-BAD", name="Bad Customer", region_id=999999)
 
 
 def test_create_order_starts_pending_unallocated(db_session, pending_order):

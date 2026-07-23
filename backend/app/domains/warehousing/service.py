@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.domains.shared.exceptions import EntityNotFoundError, ZoneCapacityExceededError
-from app.models import InventoryPosition, WarehouseZone
+from app.models import InventoryPosition, Region, Warehouse, WarehouseZone
 
 
 def get_zone_occupied_units(session: Session, warehouse_zone_id: int) -> int:
@@ -50,3 +50,73 @@ def assert_zone_capacity_available(
             f"{occupied} occupied + {additional_quantity} requested",
             rule="FR-2.2",
         )
+
+
+def create_warehouse(
+    session: Session,
+    *,
+    warehouse_code: str,
+    name: str,
+    region_id: int,
+    total_capacity_units: int,
+    address_line1: str | None = None,
+    city: str | None = None,
+    state_province: str | None = None,
+    postal_code: str | None = None,
+    country: str | None = None,
+    is_active: bool = True,
+) -> Warehouse:
+    """Create a warehouse master record.
+
+    Intentionally thin: this is reference-data creation (ADR-007 requires
+    even reference-data writes to go through Domain Services, not just
+    transactional ones), not a business rule — it validates, constructs,
+    and persists, nothing more.
+    """
+
+    if session.get(Region, region_id) is None:
+        raise EntityNotFoundError(f"Region {region_id} does not exist")
+
+    warehouse = Warehouse(
+        warehouse_code=warehouse_code,
+        name=name,
+        region_id=region_id,
+        total_capacity_units=total_capacity_units,
+        address_line1=address_line1,
+        city=city,
+        state_province=state_province,
+        postal_code=postal_code,
+        country=country,
+        is_active=is_active,
+    )
+    session.add(warehouse)
+    session.flush()
+
+    return warehouse
+
+
+def create_warehouse_zone(
+    session: Session,
+    *,
+    warehouse_id: int,
+    zone_code: str,
+    name: str,
+    zone_capacity_units: int,
+) -> WarehouseZone:
+    """Create a zone within an existing warehouse. Thin: validates the
+    parent warehouse exists, constructs, and persists."""
+
+    warehouse = session.get(Warehouse, warehouse_id)
+    if warehouse is None:
+        raise EntityNotFoundError(f"Warehouse {warehouse_id} does not exist")
+
+    zone = WarehouseZone(
+        warehouse_id=warehouse_id,
+        zone_code=zone_code,
+        name=name,
+        zone_capacity_units=zone_capacity_units,
+    )
+    session.add(zone)
+    session.flush()
+
+    return zone

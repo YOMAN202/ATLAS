@@ -1,8 +1,10 @@
 from datetime import datetime
+from decimal import Decimal
 
 import pytest
 
 from app.domains.inventory.service import (
+    create_product,
     get_or_create_position,
     record_transaction,
     release_reservation,
@@ -26,6 +28,20 @@ def position(db_session, product, warehouse, warehouse_zone):
         warehouse_id=warehouse.id,
         warehouse_zone_id=warehouse_zone.id,
     )
+
+
+def test_create_product(db_session):
+    product = create_product(
+        db_session,
+        sku="SKU-NEW",
+        name="New Product",
+        unit_cost=Decimal("4.50"),
+        unit_price=Decimal("12.00"),
+    )
+
+    assert product.id is not None
+    assert product.unit_of_measure == "EA"
+    assert product.is_active is True
 
 
 def test_get_or_create_position_creates_once(db_session, product, warehouse, warehouse_zone):

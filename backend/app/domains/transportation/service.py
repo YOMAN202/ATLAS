@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.shared.exceptions import EntityNotFoundError, InvalidStateTransitionError
 from app.domains.shared.lookups import get_code_by_id, get_id_by_code
-from app.models import Shipment, ShipmentEvent, ShipmentStatus
+from app.models import Carrier, Shipment, ShipmentEvent, ShipmentStatus, VehicleType
 
 # FR-3.3 lifecycle graph. DELIVERED and EXCEPTION are terminal for the
 # MVP — exception recovery/redelivery flows are a future enhancement, not
@@ -25,6 +25,29 @@ _ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     "DELIVERED": set(),
     "EXCEPTION": set(),
 }
+
+
+def create_carrier(
+    session: Session,
+    *,
+    carrier_code: str,
+    name: str,
+    vehicle_type_id: int,
+    is_active: bool = True,
+) -> Carrier:
+    """Create a carrier master record (FR-3.1). Thin: validates the
+    referenced vehicle type exists, constructs, and persists."""
+
+    if session.get(VehicleType, vehicle_type_id) is None:
+        raise EntityNotFoundError(f"VehicleType {vehicle_type_id} does not exist")
+
+    carrier = Carrier(
+        carrier_code=carrier_code, name=name, vehicle_type_id=vehicle_type_id, is_active=is_active
+    )
+    session.add(carrier)
+    session.flush()
+
+    return carrier
 
 
 def create_shipment(

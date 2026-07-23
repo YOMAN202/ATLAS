@@ -26,7 +26,7 @@ from app.domains.shared.exceptions import (
     ReceiptToleranceExceededError,
 )
 from app.domains.shared.lookups import get_code_by_id, get_id_by_code
-from app.models import POStatus, PurchaseOrder, PurchaseOrderLine
+from app.models import POStatus, PurchaseOrder, PurchaseOrderLine, Supplier
 
 # BR-1's "approved tolerance" is not a numeric value in any frozen document.
 # 2% under-receipt is a standard procurement shortage allowance, confirmed
@@ -52,6 +52,46 @@ def _lines_within_tolerance(session: Session, purchase_order_id: int) -> bool:
         line.received_quantity >= line.ordered_quantity * (1 - PO_RECEIPT_TOLERANCE)
         for line in lines
     )
+
+
+def create_supplier(
+    session: Session,
+    *,
+    supplier_code: str,
+    name: str,
+    default_lead_time_days: int,
+    payment_terms_days: int = 30,
+    contact_email: str | None = None,
+    contact_phone: str | None = None,
+    address_line1: str | None = None,
+    city: str | None = None,
+    state_province: str | None = None,
+    postal_code: str | None = None,
+    country: str | None = None,
+    is_active: bool = True,
+) -> Supplier:
+    """Create a supplier master record (FR-1.1). Thin: constructs and
+    persists — reliability history is derived later at ETL time, not
+    tracked here."""
+
+    supplier = Supplier(
+        supplier_code=supplier_code,
+        name=name,
+        default_lead_time_days=default_lead_time_days,
+        payment_terms_days=payment_terms_days,
+        contact_email=contact_email,
+        contact_phone=contact_phone,
+        address_line1=address_line1,
+        city=city,
+        state_province=state_province,
+        postal_code=postal_code,
+        country=country,
+        is_active=is_active,
+    )
+    session.add(supplier)
+    session.flush()
+
+    return supplier
 
 
 def create_purchase_order(
