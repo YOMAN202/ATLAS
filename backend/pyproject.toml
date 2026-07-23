@@ -1,3 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atlas-backend"
+version = "0.1.0"
+description = "ATLAS OLTP domain services, models, and API — installable so the Simulation Engine (Phase 3) can depend on it directly rather than duplicating pinned versions."
+requires-python = ">=3.12"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+# requirements.txt stays the single source of truth for pinned versions
+# (it's also what the Docker image installs from) — this just exposes
+# the same list as installable package metadata.
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
