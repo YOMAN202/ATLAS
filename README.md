@@ -19,10 +19,16 @@ Full requirements, architecture, and build order live in `docs/`:
 
 ## Status
 
-**Phase 0 (Initialization & Scaffolding) — complete.** MySQL 8, a minimal
-FastAPI backend, and a minimal Next.js frontend boot via Docker Compose.
-No business logic yet — see the Roadmap for what each subsequent phase
-adds.
+**Phase 0 (Initialization & Scaffolding) — complete.**
+**Phase 1 (OLTP Database) — complete.** Full normalized schema, migrations, seed data.
+**Phase 2 (Domain Services & Business Rules) — complete.** BR-1, BR-2, BR-5
+enforced in `backend/app/domains/`; the only OLTP write path (ADR-007).
+**Phase 3 (Simulation Engine) — in progress.** Day-advancing engine and
+all five generators (`simulation/`) built and tested; a short (~3-month)
+validation run has been executed and is pending review before the full
+5-year, target-volume dataset is generated.
+
+See `docs/ATLAS-Roadmap.md` for what each subsequent phase adds.
 
 ## Setup
 
