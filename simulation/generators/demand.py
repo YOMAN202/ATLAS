@@ -27,6 +27,43 @@ from simulation.stats import SimulationStats
 _SEASONAL_PEAK_DAY_OF_YEAR = 335  # late November
 
 
+def _weighted_indices_without_replacement(
+    rng: np.random.Generator, weights: np.ndarray, size: int
+) -> list[int]:
+    """Statistically equivalent to
+    rng.choice(len(weights), size=size, replace=False, p=weights), but
+    much cheaper: numpy's native replace=False + p= path does real work
+    across the *entire* population on every call (an Efraimidis-Spirakis-
+    style scheme), regardless of how small `size` is — expensive at
+    ~800 calls/day over 5,000 products.
+
+    Instead, draw WITH replacement (cheap: a single vectorized inverse-CDF
+    lookup) and re-draw only on collision. This is a standard equivalence
+    (rejection sampling for sampling-without-replacement): conditional on
+    a draw differing from those already chosen, its distribution is
+    exactly proportional to the original weights restricted to the
+    remaining items — the same joint "which items get chosen"
+    distribution numpy's native path produces, just computed differently.
+    Only the *order* items are collected in can differ (a cosmetic detail
+    — line_number is a positional label, not something with statistical
+    meaning here); which set of products gets chosen is unaffected.
+    """
+
+    n = len(weights)
+    chosen: list[int] = []
+    chosen_set: set[int] = set()
+    while len(chosen) < size:
+        needed = size - len(chosen)
+        for idx in rng.choice(n, size=needed, p=weights):
+            idx = int(idx)
+            if idx not in chosen_set:
+                chosen_set.add(idx)
+                chosen.append(idx)
+                if len(chosen) == size:
+                    break
+    return chosen
+
+
 def seasonal_multiplier(current_date: date, config: WorldStateConfig) -> float:
     """1.0 +/- seasonality_amplitude, peaking at _SEASONAL_PEAK_DAY_OF_YEAR
     and troughing exactly half a year away. Pure function — independently
@@ -65,11 +102,8 @@ def _generate_one_order(
     num_lines = int(rng.integers(1, config.max_lines_per_order + 1))
     # Weighted by each product's Zipf/Pareto demand share (calibration
     # round 2) rather than uniform — see world_init._assign_demand_weights.
-    product_indices = rng.choice(
-        len(world.product_ids),
-        size=num_lines,
-        replace=False,
-        p=world.product_demand_weights_array,
+    product_indices = _weighted_indices_without_replacement(
+        rng, world.product_demand_weights_array, num_lines
     )
 
     lines = []
