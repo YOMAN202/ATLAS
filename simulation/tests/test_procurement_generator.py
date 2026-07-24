@@ -58,8 +58,9 @@ def test_reorder_does_not_trigger_above_threshold(db_session, seeded_lookups):
     world = create_world(db_session, TEST_CONFIG, rng)
     stats = SimulationStats()
 
-    # Freshly seeded positions are all at reorder_quantity_units (1000),
-    # comfortably above reorder_threshold_units (200) — nothing to reorder.
+    # Freshly seeded positions are always initial_inventory_multiplier x
+    # their own product's threshold — by construction, above that
+    # threshold for every product — so nothing should reorder yet.
     run_reorder_heuristic(db_session, world, TEST_CONFIG.start_date, TEST_CONFIG, rng, stats)
 
     assert stats.purchase_orders_created == 0

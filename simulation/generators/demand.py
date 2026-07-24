@@ -25,8 +25,6 @@ from simulation.generators.world_init import WorldState
 from simulation.stats import SimulationStats
 
 _SEASONAL_PEAK_DAY_OF_YEAR = 335  # late November
-_MIN_LINE_QUANTITY = 1
-_MAX_LINE_QUANTITY = 5
 
 
 def seasonal_multiplier(current_date: date, config: WorldStateConfig) -> float:
@@ -65,13 +63,20 @@ def _generate_one_order(
 ) -> None:
     customer_id = world.customer_ids[int(rng.integers(0, len(world.customer_ids)))]
     num_lines = int(rng.integers(1, config.max_lines_per_order + 1))
-    product_indices = rng.choice(len(world.product_ids), size=num_lines, replace=False)
+    # Weighted by each product's Zipf/Pareto demand share (calibration
+    # round 2) rather than uniform — see world_init._assign_demand_weights.
+    product_indices = rng.choice(
+        len(world.product_ids),
+        size=num_lines,
+        replace=False,
+        p=world.product_demand_weights_array,
+    )
 
     lines = []
     for line_number, idx in enumerate(product_indices, start=1):
         product_id = world.product_ids[int(idx)]
         unit_cost, unit_price = world.product_prices[product_id]
-        quantity = int(rng.integers(_MIN_LINE_QUANTITY, _MAX_LINE_QUANTITY + 1))
+        quantity = int(rng.integers(config.min_line_quantity, config.max_line_quantity + 1))
         lines.append(
             {
                 "product_id": product_id,

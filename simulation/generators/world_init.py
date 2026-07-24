@@ -14,6 +14,7 @@ memory, as part of WorldState — not persisted, since it isn't part of
 the frozen schema.
 """
 
+import math
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -44,6 +45,20 @@ class WorldState:
     product_suppliers: dict[int, list[int]]
     initial_positions: dict[int, int]
     product_prices: dict[int, tuple[Decimal, Decimal]]  # product_id -> (unit_cost, unit_price)
+    # Demand calibration (round 2): Zipf/Pareto popularity weight per
+    # product (shares sum to 1.0 across all products), and the same
+    # weights as a plain array aligned with product_ids — precomputed once
+    # so the daily demand generator doesn't rebuild it on every order.
+    product_demand_weights: dict[int, float]
+    product_demand_weights_array: np.ndarray
+    # Per-product reorder threshold/quantity computed once at world-init
+    # from configured values only (demand weight, assigned suppliers'
+    # configured lead times, and WorldStateConfig's calibration constants)
+    # — never from observed/historical demand. See WorldStateConfig's
+    # reorder_safety_margin_days / reorder_quantity_multiplier /
+    # initial_inventory_multiplier docstring for the full rationale.
+    reorder_thresholds: dict[int, int]
+    reorder_quantities: dict[int, int]
 
     # Runtime state threaded across simulated days by the day-advancing
     # generators (not populated here — world_init only creates master
@@ -69,15 +84,21 @@ def create_world(
     region_ids = _existing_region_ids(session)
     warehouse_ids, warehouse_zone_ids = _create_warehouses(session, config, fake, region_ids)
     product_ids, product_prices = _create_products(session, config, fake, rng)
-    supplier_ids = _create_suppliers(session, config, fake, rng)
+    supplier_ids, supplier_lead_times = _create_suppliers(session, config, fake, rng)
     customer_ids = _create_customers(session, config, fake, region_ids)
     carrier_ids = _create_carriers(session, config, fake)
 
     product_suppliers = {
         product_id: _assign_suppliers(rng, supplier_ids) for product_id in product_ids
     }
+    demand_weights = _assign_demand_weights(rng, product_ids, config)
+    demand_weights_array = np.array([demand_weights[pid] for pid in product_ids])
+    reorder_thresholds, reorder_quantities = _compute_reorder_parameters(
+        product_ids, demand_weights, product_suppliers, supplier_lead_times, config
+    )
+
     initial_positions = _seed_initial_inventory(
-        session, config, rng, product_ids, warehouse_ids, warehouse_zone_ids
+        session, config, rng, product_ids, warehouse_ids, warehouse_zone_ids, reorder_thresholds
     )
 
     return WorldState(
@@ -90,6 +111,10 @@ def create_world(
         product_suppliers=product_suppliers,
         initial_positions=initial_positions,
         product_prices=product_prices,
+        product_demand_weights=demand_weights,
+        product_demand_weights_array=demand_weights_array,
+        reorder_thresholds=reorder_thresholds,
+        reorder_quantities=reorder_quantities,
     )
 
 
@@ -154,16 +179,18 @@ def _create_products(
 
 def _create_suppliers(
     session: Session, config: WorldStateConfig, fake: Faker, rng: np.random.Generator
-) -> list[int]:
+) -> tuple[list[int], dict[int, int]]:
     supplier_ids: list[int] = []
+    supplier_lead_times: dict[int, int] = {}
     for i in range(config.num_suppliers):
+        lead_time_days = int(
+            rng.integers(_MIN_SUPPLIER_LEAD_TIME_DAYS, _MAX_SUPPLIER_LEAD_TIME_DAYS + 1)
+        )
         supplier = procurement.create_supplier(
             session,
             supplier_code=f"SUP-{i + 1:04d}",
             name=fake.company(),
-            default_lead_time_days=int(
-                rng.integers(_MIN_SUPPLIER_LEAD_TIME_DAYS, _MAX_SUPPLIER_LEAD_TIME_DAYS + 1)
-            ),
+            default_lead_time_days=lead_time_days,
             contact_email=fake.company_email(),
             contact_phone=fake.phone_number(),
             address_line1=fake.street_address(),
@@ -173,7 +200,8 @@ def _create_suppliers(
             country="USA",
         )
         supplier_ids.append(supplier.id)
-    return supplier_ids
+        supplier_lead_times[supplier.id] = lead_time_days
+    return supplier_ids, supplier_lead_times
 
 
 def _create_customers(
@@ -245,6 +273,69 @@ def _assign_suppliers(rng: np.random.Generator, supplier_ids: list[int]) -> list
     return sorted(supplier_ids[i] for i in chosen)
 
 
+def _assign_demand_weights(
+    rng: np.random.Generator, product_ids: list[int], config: WorldStateConfig
+) -> dict[int, float]:
+    """Zipf/Pareto popularity weight per product (calibration round 2):
+    weight(rank) = 1 / rank^demand_zipf_exponent, normalized to sum to 1
+    across all products. Ranks are assigned via a random permutation of
+    product_ids (not creation order), so popularity doesn't trivially
+    correlate with SKU number — decorrelating the two is what keeps this
+    a demand-shape assignment rather than an artifact of naming order.
+    """
+
+    n = len(product_ids)
+    ranks = rng.permutation(n) + 1  # 1-indexed ranks, one per product_ids position
+    raw_weights = 1.0 / np.power(ranks.astype(float), config.demand_zipf_exponent)
+    normalized = raw_weights / raw_weights.sum()
+    return {product_id: float(normalized[i]) for i, product_id in enumerate(product_ids)}
+
+
+def _compute_reorder_parameters(
+    product_ids: list[int],
+    demand_weights: dict[int, float],
+    product_suppliers: dict[int, list[int]],
+    supplier_lead_times: dict[int, int],
+    config: WorldStateConfig,
+) -> tuple[dict[int, int], dict[int, int]]:
+    """Per-product reorder threshold + restock quantity (calibration round
+    2), derived ONLY from configured/assigned values — a product's own
+    demand weight, its assigned suppliers' configured lead times, and
+    WorldStateConfig's calibration constants. No observed/historical
+    demand, rolling averages, or live computation of any kind, per the
+    Phase 3 / Phase 7 architectural boundary (see WorldStateConfig).
+
+    threshold = expected_daily_demand_units x (max assigned lead time +
+    reorder_safety_margin_days). Using the max (not average) lead time
+    among a product's assigned suppliers is a deliberately conservative
+    choice: run_reorder_heuristic picks a random assigned supplier each
+    time it reorders, so sizing the buffer for the slowest one avoids an
+    optimistic threshold that a slow-supplier draw could undercut.
+    """
+
+    avg_lines_per_order = (1 + config.max_lines_per_order) / 2
+    avg_quantity_per_line = (config.min_line_quantity + config.max_line_quantity) / 2
+    expected_total_daily_units = (
+        config.base_daily_order_rate * avg_lines_per_order * avg_quantity_per_line
+    )
+
+    thresholds: dict[int, int] = {}
+    quantities: dict[int, int] = {}
+    for product_id in product_ids:
+        expected_daily_units = demand_weights[product_id] * expected_total_daily_units
+        max_lead_time = max(
+            supplier_lead_times[supplier_id] for supplier_id in product_suppliers[product_id]
+        )
+        threshold = max(
+            1,
+            math.ceil(expected_daily_units * (max_lead_time + config.reorder_safety_margin_days)),
+        )
+        thresholds[product_id] = threshold
+        quantities[product_id] = max(1, math.ceil(threshold * config.reorder_quantity_multiplier))
+
+    return thresholds, quantities
+
+
 def _seed_initial_inventory(
     session: Session,
     config: WorldStateConfig,
@@ -252,11 +343,16 @@ def _seed_initial_inventory(
     product_ids: list[int],
     warehouse_ids: list[int],
     warehouse_zone_ids: dict[int, list[int]],
+    reorder_thresholds: dict[int, int],
 ) -> dict[int, int]:
     """One seeded position per product, in one randomly chosen warehouse
-    zone, at the reorder quantity — sparsified (TDD §10: "a SKU not yet
-    stocked at a warehouse generates no snapshot rows"), not every
-    product in every warehouse.
+    zone, at initial_inventory_multiplier x that product's own reorder
+    threshold — sparsified (TDD §10: "a SKU not yet stocked at a
+    warehouse generates no snapshot rows"), not every product in every
+    warehouse. Sizing initial stock relative to each product's own
+    (demand-derived) threshold, rather than one global quantity, is what
+    lets every demand tier — not just the highest-volume SKUs — reach its
+    first real reorder within the validation window.
     """
 
     initial_positions: dict[int, int] = {}
@@ -267,6 +363,10 @@ def _seed_initial_inventory(
         zone_ids = warehouse_zone_ids[warehouse_id]
         zone_id = zone_ids[int(rng.integers(0, len(zone_ids)))]
 
+        initial_quantity = math.ceil(
+            reorder_thresholds[product_id] * config.initial_inventory_multiplier
+        )
+
         position = inventory.get_or_create_position(
             session, product_id=product_id, warehouse_id=warehouse_id, warehouse_zone_id=zone_id
         )
@@ -274,7 +374,7 @@ def _seed_initial_inventory(
             session,
             inventory_position_id=position.id,
             transaction_type_code="RECEIPT",
-            quantity_delta=config.reorder_quantity_units,
+            quantity_delta=initial_quantity,
             occurred_at=occurred_at,
             source_reference_type="world_init",
             source_reference_id=product_id,

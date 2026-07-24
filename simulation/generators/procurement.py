@@ -2,13 +2,22 @@
 (FR-1.2), which triggers PO creation during data generation through the
 procurement Domain Service to populate procurement history.
 
-This heuristic is deliberately simple (a fixed on-hand threshold and a
-fixed reorder quantity, both config-driven) and is a *separate code path*
-from the Phase 7 Decision Support reorder recommendation (BR-3: average
-daily demand x lead time + safety stock, computed from the OLAP
-warehouse). The two must never be conflated or share logic — this
-generator does not import anything from a future decision_support module,
-and does not implement BR-3's formula.
+This heuristic is a *separate code path* from the Phase 7 Decision
+Support reorder recommendation (BR-3: average daily demand x lead time +
+safety stock, computed from the OLAP warehouse) and must stay that way —
+this generator does not import anything from a future decision_support
+module, and does not implement BR-3's formula.
+
+Calibration round 2: the per-product threshold/quantity this module reads
+(world.reorder_thresholds / world.reorder_quantities) are computed once at
+world-init (generators/world_init.py:_compute_reorder_parameters) purely
+from configured/assigned values — a product's demand weight, its
+suppliers' configured lead times, and WorldStateConfig's calibration
+constants. Nothing in this module (or in computing those values) reads
+observed/historical demand, a rolling average, or performs any live
+analytics — that boundary is what keeps this "simulation input
+configuration" rather than an analytical forecast, and is exactly the
+boundary that must never blur with BR-3.
 """
 
 from datetime import date, timedelta
@@ -38,7 +47,7 @@ def run_reorder_heuristic(
 
         position_id = world.initial_positions[product_id]
         position = session.get(InventoryPosition, position_id)
-        if position.quantity_on_hand >= config.reorder_threshold_units:
+        if position.quantity_on_hand >= world.reorder_thresholds[product_id]:
             continue
 
         _create_reorder(session, world, product_id, position, current_date, config, rng, stats)
@@ -73,7 +82,7 @@ def _create_reorder(
             {
                 "product_id": product_id,
                 "line_number": 1,
-                "ordered_quantity": config.reorder_quantity_units,
+                "ordered_quantity": world.reorder_quantities[product_id],
                 "unit_cost": unit_cost,
                 "expected_delivery_date": expected_delivery_date,
             }
@@ -96,7 +105,7 @@ def _create_reorder(
             "po_id": po.id,
             "po_line_id": po_line.id,
             "product_id": product_id,
-            "ordered_quantity": config.reorder_quantity_units,
+            "ordered_quantity": world.reorder_quantities[product_id],
             "actual_delivery_date": actual_delivery_date,
         }
     )

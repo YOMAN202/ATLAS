@@ -36,15 +36,62 @@ class WorldStateConfig:
     zones_per_warehouse: int = 4
     warehouse_capacity_units: int = 2_000_000
     # ~5,000 SKUs seeded across 8 warehouses x 4 zones averages ~156
-    # products/zone at reorder_quantity_units each (~156k units) before any
-    # restocking; sized with headroom above that, not tuned to the exact
-    # expected load.
+    # products/zone; sized with headroom above the per-product initial
+    # stock computed by the reorder-calibration constants below, not tuned
+    # to the exact expected load.
     zone_capacity_units: int = 500_000
 
     # Demand generator (FR-5.3: seasonal/promotional demand modifiers).
     base_daily_order_rate: float = 800.0
     seasonality_amplitude: float = 0.35
     max_lines_per_order: int = 4
+    min_line_quantity: int = 1
+    max_line_quantity: int = 5
+
+    # Demand concentration (calibration, Phase 3 validation round 2):
+    # products are assigned a Zipf/Pareto popularity weight at world-init
+    # (generators/world_init.py:_assign_demand_weights) instead of being
+    # selected with uniform probability. demand_zipf_exponent=1.0 is the
+    # classic Zipf's-law exponent — empirically, real retail/e-commerce
+    # SKU sales-rank distributions commonly follow close to this exponent,
+    # so it is a literature-grounded default, not an arbitrary knob. It is
+    # what makes the "top 20% of SKUs account for most demand" long-tail
+    # shape the round-1 validation run's ~uniform demand did not have.
+    demand_zipf_exponent: float = 1.0
+
+    # PO reorder heuristic (FR-1.2) — deliberately simpler than, and must
+    # remain a separate code path from, BR-3 (Phase 7's analytical reorder
+    # recommendation). Round 1's fixed global reorder_threshold_units=200
+    # / reorder_quantity_units=1000 produced zero purchase orders in 90
+    # days: every product's threshold represented ~157 days of runway at
+    # its actual (uniform-demand) consumption rate, far above any
+    # supplier's lead time, so no product ever came close to triggering a
+    # reorder. Round 2 replaces the single global threshold/quantity with
+    # per-product values computed once at world-init
+    # (generators/world_init.py:_compute_reorder_parameters), each derived
+    # ONLY from that product's assigned demand weight, its assigned
+    # suppliers' configured lead times, and the constants below — never
+    # from observed/historical demand, rolling averages, or any live
+    # computation. That keeps this heuristic pure simulation-input
+    # configuration, not an analytical forecast, preserving the Phase
+    # 3/Phase 7 boundary.
+    #
+    # reorder_safety_margin_days: extra buffer (in days of expected demand)
+    # added on top of a product's own assigned supplier's lead time when
+    # sizing its threshold — conceptually similar to conventional safety
+    # stock, but expressed as a fixed day-count rather than computed from
+    # demand variance, keeping the formula simple by design.
+    reorder_safety_margin_days: int = 7
+    # reorder_quantity_multiplier: each restock is sized as a multiple of
+    # the product's own threshold, so one delivery covers several reorder
+    # cycles' worth of buffer rather than restocking to the exact minimum.
+    reorder_quantity_multiplier: float = 3.0
+    # initial_inventory_multiplier: initial stock is set at this multiple
+    # of each product's own calculated threshold — modest headroom so a
+    # product isn't reordering from day 0, but low enough that ordinary
+    # demand triggers a real first reorder within a 90-day validation
+    # window for every demand tier, not just the highest-volume SKUs.
+    initial_inventory_multiplier: float = 1.5
 
     # Supplier delivery generator: lead-time distribution + occasional
     # lateness (TDD §5).
@@ -52,12 +99,6 @@ class WorldStateConfig:
     late_delivery_probability: float = 0.08
     late_delivery_extra_days_max: int = 5
     quality_rejection_rate: float = 0.02
-
-    # PO reorder heuristic (FR-1.2) — deliberately simpler than BR-3
-    # (Phase 7's avg-daily-demand x lead-time + safety-stock formula) and
-    # must stay that way; see generators/procurement.py.
-    reorder_threshold_units: int = 200
-    reorder_quantity_units: int = 1000
 
     # Transportation cost model.
     shipment_miles_min: float = 25.0

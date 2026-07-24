@@ -17,7 +17,7 @@ def drain_below_threshold(
 
     position_id = world.initial_positions[product_id]
     position = db_session.get(InventoryPosition, position_id)
-    drain = position.quantity_on_hand - config.reorder_threshold_units + 1
+    drain = position.quantity_on_hand - world.reorder_thresholds[product_id] + 1
     inventory.record_transaction(
         db_session,
         inventory_position_id=position_id,
