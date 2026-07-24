@@ -9,6 +9,7 @@ Nothing here reads the OLAP warehouse or Decision Support output
 (ADR-007); it never writes to a table directly.
 """
 
+from collections.abc import Callable
 from datetime import date, timedelta
 
 import numpy as np
@@ -25,20 +26,47 @@ def initialize_world(session: Session, config: WorldStateConfig) -> WorldState:
     return create_world(session, config, rng)
 
 
-def run(session: Session, world: WorldState, config: WorldStateConfig) -> SimulationStats:
+def run(
+    session: Session,
+    world: WorldState,
+    config: WorldStateConfig,
+    *,
+    commit_every_n_days: int | None = None,
+    on_day_committed: Callable[[int, SimulationStats], None] | None = None,
+) -> SimulationStats:
     """Advance the simulation config.num_days days from config.start_date,
     calling generators in the same fixed order every day. Returns the
     accumulated run statistics.
+
+    commit_every_n_days is opt-in and None by default, which preserves the
+    original behavior relied on by tests (flush only; a single session
+    owned and committed once by the caller, per db.py's contract) — tests
+    run inside a SAVEPOINT-based transaction that a mid-test commit() would
+    break (see conftest.py).
+
+    Long standalone runs (e.g. run_validation.py) should pass a real value:
+    without it, one multi-day transaction and one ever-growing SQLAlchemy
+    identity map both accumulate for the entire run, and per-operation cost
+    was observed to degrade substantially over a multi-hour run (~178
+    rows/sec average dropping to ~61 rows/sec after ~1.5M rows). Committing
+    and expunging periodically keeps both bounded, and also gives durable,
+    observable per-day progress instead of an opaque single final commit.
     """
 
     rng = np.random.default_rng(config.seed)
     stats = SimulationStats()
     current_date = config.start_date
 
-    for _ in range(config.num_days):
+    for day_index in range(config.num_days):
         _advance_day(session, world, current_date, config, rng, stats)
         session.flush()
         current_date += timedelta(days=1)
+
+        if commit_every_n_days and (day_index + 1) % commit_every_n_days == 0:
+            session.commit()
+            session.expunge_all()
+            if on_day_committed:
+                on_day_committed(day_index + 1, stats)
 
     return stats
 
