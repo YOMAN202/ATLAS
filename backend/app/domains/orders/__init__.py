@@ -8,9 +8,16 @@ present (ADR-007). Writes inventory only through the inventory module's
 
 from app.domains.orders.service import (
     allocate_order_line,
+    allocate_order_lines_bulk,
     create_customer,
     create_order,
     mark_line_shipped,
 )
 
-__all__ = ["allocate_order_line", "create_customer", "create_order", "mark_line_shipped"]
+__all__ = [
+    "allocate_order_line",
+    "allocate_order_lines_bulk",
+    "create_customer",
+    "create_order",
+    "mark_line_shipped",
+]

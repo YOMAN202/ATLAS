@@ -83,21 +83,52 @@ def generate_daily_orders(
     rng: np.random.Generator,
     stats: SimulationStats,
 ) -> None:
+    """Create the day's orders, then allocate every one of their lines in
+    a single bulk call (orders.allocate_order_lines_bulk) instead of one
+    allocate_order_line() call per line — allocation was the highest-volume
+    per-day operation (~2,700 lines/day at full scale), each previously a
+    separate round-trip.
+    """
+
     expected_orders = config.base_daily_order_rate * seasonal_multiplier(current_date, config)
     num_orders = int(rng.poisson(expected_orders))
 
+    created_order_lines: list[OrderLine] = []
     for _ in range(num_orders):
-        _generate_one_order(session, world, current_date, config, rng, stats)
+        created_order_lines.extend(
+            _create_one_order(session, world, current_date, config, rng, stats)
+        )
+
+    if not created_order_lines:
+        return
+
+    allocations = [
+        {
+            "order_line_id": order_line.id,
+            "inventory_position_id": world.initial_positions[order_line.product_id],
+        }
+        for order_line in created_order_lines
+    ]
+    allocated_lines = orders.allocate_order_lines_bulk(session, allocations=allocations)
+
+    for allocated in allocated_lines:
+        if allocated.backordered_quantity > 0:
+            stats.order_lines_backordered += 1
+        else:
+            stats.order_lines_fully_allocated += 1
 
 
-def _generate_one_order(
+def _create_one_order(
     session: Session,
     world: WorldState,
     current_date: date,
     config: WorldStateConfig,
     rng: np.random.Generator,
     stats: SimulationStats,
-) -> None:
+) -> list[OrderLine]:
+    """Create one order and its lines (unallocated). Returns the created
+    lines so the caller can batch allocation across the whole day."""
+
     customer_id = world.customer_ids[int(rng.integers(0, len(world.customer_ids)))]
     num_lines = int(rng.integers(1, config.max_lines_per_order + 1))
     # Weighted by each product's Zipf/Pareto demand share (calibration
@@ -132,15 +163,4 @@ def _generate_one_order(
     stats.orders_created += 1
     stats.order_lines_created += len(lines)
 
-    order_lines = (
-        session.execute(select(OrderLine).where(OrderLine.order_id == order.id)).scalars().all()
-    )
-    for order_line in order_lines:
-        position_id = world.initial_positions[order_line.product_id]
-        allocated = orders.allocate_order_line(
-            session, order_line_id=order_line.id, inventory_position_id=position_id
-        )
-        if allocated.backordered_quantity > 0:
-            stats.order_lines_backordered += 1
-        else:
-            stats.order_lines_fully_allocated += 1
+    return session.execute(select(OrderLine).where(OrderLine.order_id == order.id)).scalars().all()
