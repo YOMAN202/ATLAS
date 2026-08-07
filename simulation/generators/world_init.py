@@ -59,6 +59,10 @@ class WorldState:
     # initial_inventory_multiplier docstring for the full rationale.
     reorder_thresholds: dict[int, int]
     reorder_quantities: dict[int, int]
+    # carrier_id -> cost_per_mile, precomputed at world-init (see
+    # _create_carriers) so transportation dispatch never needs a
+    # per-line session.get(Carrier, ...) / session.get(VehicleType, ...).
+    carrier_cost_per_mile: dict[int, Decimal]
 
     # Runtime state threaded across simulated days by the day-advancing
     # generators (not populated here — world_init only creates master
@@ -86,7 +90,7 @@ def create_world(
     product_ids, product_prices = _create_products(session, config, fake, rng)
     supplier_ids, supplier_lead_times = _create_suppliers(session, config, fake, rng)
     customer_ids = _create_customers(session, config, fake, region_ids)
-    carrier_ids = _create_carriers(session, config, fake)
+    carrier_ids, carrier_cost_per_mile = _create_carriers(session, config, fake)
 
     product_suppliers = {
         product_id: _assign_suppliers(rng, supplier_ids) for product_id in product_ids
@@ -115,6 +119,7 @@ def create_world(
         product_demand_weights_array=demand_weights_array,
         reorder_thresholds=reorder_thresholds,
         reorder_quantities=reorder_quantities,
+        carrier_cost_per_mile=carrier_cost_per_mile,
     )
 
 
@@ -227,9 +232,19 @@ def _create_customers(
     return customer_ids
 
 
-def _create_carriers(session: Session, config: WorldStateConfig, fake: Faker) -> list[int]:
+def _create_carriers(
+    session: Session, config: WorldStateConfig, fake: Faker
+) -> tuple[list[int], dict[int, Decimal]]:
     vehicle_type_ids = _existing_vehicle_type_ids(session)
+    # Vehicle types are a tiny, fixed reference set (config.num_carriers
+    # cycles through them) — fetched once here so the transportation
+    # generator never needs a per-dispatch session.get(VehicleType, ...).
+    cost_per_mile_by_vehicle_type = {
+        vt_id: session.get(VehicleType, vt_id).cost_per_mile for vt_id in vehicle_type_ids
+    }
+
     carrier_ids: list[int] = []
+    carrier_cost_per_mile: dict[int, Decimal] = {}
     for i in range(config.num_carriers):
         vehicle_type_id = vehicle_type_ids[i % len(vehicle_type_ids)]
         carrier = transportation.create_carrier(
@@ -239,7 +254,8 @@ def _create_carriers(session: Session, config: WorldStateConfig, fake: Faker) ->
             vehicle_type_id=vehicle_type_id,
         )
         carrier_ids.append(carrier.id)
-    return carrier_ids
+        carrier_cost_per_mile[carrier.id] = cost_per_mile_by_vehicle_type[vehicle_type_id]
+    return carrier_ids, carrier_cost_per_mile
 
 
 def _existing_region_ids(session: Session) -> list[int]:

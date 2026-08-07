@@ -18,7 +18,7 @@ from datetime import date, timedelta
 
 import numpy as np
 from app.domains import inventory, orders, transportation
-from app.models import Carrier, Order, OrderLine, VehicleType
+from app.models import Order, OrderLine
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -41,37 +41,43 @@ def generate_shipments_for_allocated_lines(
     rng: np.random.Generator,
     stats: SimulationStats,
 ) -> None:
-    lines = (
-        session.execute(
-            select(OrderLine).where(
-                OrderLine.allocated_quantity == OrderLine.ordered_quantity,
-                OrderLine.shipment_id.is_(None),
-            )
+    # Joins in the customer_id here (one query for the whole day's batch)
+    # instead of a per-line session.get(Order, ...) in _dispatch_line —
+    # was one of the largest single contributors to per-day DB round-trips
+    # (profiled before the 5-year run).
+    rows = session.execute(
+        select(OrderLine, Order.customer_id)
+        .join(Order, Order.id == OrderLine.order_id)
+        .where(
+            OrderLine.allocated_quantity == OrderLine.ordered_quantity,
+            OrderLine.shipment_id.is_(None),
         )
-        .scalars()
-        .all()
-    )
+    ).all()
 
-    for line in lines:
-        _dispatch_line(session, world, line, current_date, config, rng, stats)
+    for line, customer_id in rows:
+        _dispatch_line(session, world, line, customer_id, current_date, config, rng, stats)
 
 
 def _dispatch_line(
     session: Session,
     world: WorldState,
     line: OrderLine,
+    customer_id: int,
     current_date: date,
     config: WorldStateConfig,
     rng: np.random.Generator,
     stats: SimulationStats,
 ) -> None:
-    order = session.get(Order, line.order_id)
+    # Carrier -> cost_per_mile is a small, fixed lookup (config.num_carriers,
+    # e.g. 25) computed once at world-init (see world_init._create_carriers)
+    # instead of two session.get() round-trips (Carrier, then VehicleType)
+    # on every dispatched line — was one of the largest single contributors
+    # to per-day DB round-trips (profiled before the 5-year run).
     carrier_id = world.carrier_ids[int(rng.integers(0, len(world.carrier_ids)))]
-    carrier = session.get(Carrier, carrier_id)
-    vehicle_type = session.get(VehicleType, carrier.vehicle_type_id)
+    cost_per_mile = world.carrier_cost_per_mile[carrier_id]
 
     distance_miles = round(rng.uniform(config.shipment_miles_min, config.shipment_miles_max), 2)
-    shipping_cost = round(distance_miles * float(vehicle_type.cost_per_mile), 2)
+    shipping_cost = round(distance_miles * float(cost_per_mile), 2)
     occurred_at = as_datetime(current_date)
 
     inventory.pick(
@@ -89,7 +95,7 @@ def _dispatch_line(
         shipment_number=shipment_number,
         carrier_id=carrier_id,
         origin_warehouse_id=line.fulfillment_warehouse_id,
-        destination_customer_id=order.customer_id,
+        destination_customer_id=customer_id,
         occurred_at=occurred_at,
         ship_date=current_date,
         distance_miles=distance_miles,
