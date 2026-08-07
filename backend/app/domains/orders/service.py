@@ -353,3 +353,49 @@ def mark_line_shipped(session: Session, *, order_line_id: int, shipment_id: int)
     session.flush()
 
     return line
+
+
+def mark_lines_shipped_bulk(session: Session, *, links: list[dict]) -> list[OrderLine]:
+    """Batched equivalent of calling mark_line_shipped() once per entry in
+    `links` (each a dict with order_line_id, shipment_id keys), in list
+    order. Each link is independent (no shared mutable state between
+    entries), so this is a bulk-read-then-bulk-write, same validation and
+    exceptions as the single-item version.
+    """
+
+    if not links:
+        return []
+
+    line_ids = [entry["order_line_id"] for entry in links]
+    shipment_ids = [entry["shipment_id"] for entry in links]
+
+    lines_by_id = {
+        line.id: line
+        for line in session.execute(select(OrderLine).where(OrderLine.id.in_(line_ids)))
+        .scalars()
+        .all()
+    }
+    existing_shipment_ids = set(
+        session.execute(select(Shipment.id).where(Shipment.id.in_(shipment_ids))).scalars().all()
+    )
+
+    result_lines: list[OrderLine] = []
+    for entry in links:
+        order_line_id = entry["order_line_id"]
+        shipment_id = entry["shipment_id"]
+
+        line = lines_by_id.get(order_line_id)
+        if line is None:
+            raise EntityNotFoundError(f"OrderLine {order_line_id} does not exist")
+        if line.allocated_quantity <= 0:
+            raise InvalidStateTransitionError(
+                f"OrderLine {order_line_id} has no allocated quantity to ship"
+            )
+        if shipment_id not in existing_shipment_ids:
+            raise EntityNotFoundError(f"Shipment {shipment_id} does not exist")
+
+        line.shipment_id = shipment_id
+        result_lines.append(line)
+
+    session.flush()
+    return result_lines

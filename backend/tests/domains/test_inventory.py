@@ -7,6 +7,7 @@ from app.domains.inventory.service import (
     create_product,
     get_or_create_position,
     pick,
+    pick_bulk,
     record_transaction,
     release_reservation,
     reserve,
@@ -260,3 +261,84 @@ def test_pick_non_positive_quantity_raises(db_session, position):
 def test_pick_unknown_position_raises(db_session, lookups):
     with pytest.raises(EntityNotFoundError):
         pick(db_session, inventory_position_id=999999, quantity=1, occurred_at=NOW)
+
+
+def test_pick_bulk_empty_list_returns_empty(db_session):
+    assert pick_bulk(db_session, picks=[]) == []
+
+
+def test_pick_bulk_matches_single_pick_behavior(db_session, position, lookups):
+    record_transaction(
+        db_session,
+        inventory_position_id=position.id,
+        transaction_type_code="RECEIPT",
+        quantity_delta=50,
+        occurred_at=NOW,
+    )
+    reserve(db_session, inventory_position_id=position.id, quantity=20)
+
+    pick_bulk(
+        db_session,
+        picks=[{"inventory_position_id": position.id, "quantity": 20, "occurred_at": NOW}],
+    )
+
+    reloaded = db_session.get(InventoryPosition, position.id)
+    assert reloaded.quantity_on_hand == 30
+    assert reloaded.quantity_reserved == 0
+
+
+# BR-2 correctness under batching: two picks against the same position in
+# one bulk call must consume quantity_reserved cumulatively, in list
+# order — never allow a same-batch race to over-pick.
+def test_pick_bulk_shared_position_consumes_cumulatively(db_session, position, lookups):
+    record_transaction(
+        db_session,
+        inventory_position_id=position.id,
+        transaction_type_code="RECEIPT",
+        quantity_delta=50,
+        occurred_at=NOW,
+    )
+    reserve(db_session, inventory_position_id=position.id, quantity=30)
+
+    pick_bulk(
+        db_session,
+        picks=[
+            {"inventory_position_id": position.id, "quantity": 20, "occurred_at": NOW},
+            {"inventory_position_id": position.id, "quantity": 10, "occurred_at": NOW},
+        ],
+    )
+
+    reloaded = db_session.get(InventoryPosition, position.id)
+    assert reloaded.quantity_on_hand == 20
+    assert reloaded.quantity_reserved == 0
+
+
+def test_pick_bulk_shared_position_second_pick_exceeding_remaining_raises(
+    db_session, position, lookups
+):
+    record_transaction(
+        db_session,
+        inventory_position_id=position.id,
+        transaction_type_code="RECEIPT",
+        quantity_delta=50,
+        occurred_at=NOW,
+    )
+    reserve(db_session, inventory_position_id=position.id, quantity=15)
+
+    with pytest.raises(InsufficientInventoryError):
+        pick_bulk(
+            db_session,
+            picks=[
+                {"inventory_position_id": position.id, "quantity": 10, "occurred_at": NOW},
+                # Only 5 left reserved after the first pick — this must fail.
+                {"inventory_position_id": position.id, "quantity": 6, "occurred_at": NOW},
+            ],
+        )
+
+
+def test_pick_bulk_unknown_position_raises(db_session, lookups):
+    with pytest.raises(EntityNotFoundError):
+        pick_bulk(
+            db_session,
+            picks=[{"inventory_position_id": 999999, "quantity": 1, "occurred_at": NOW}],
+        )

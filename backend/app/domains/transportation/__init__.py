@@ -11,6 +11,12 @@ from app.domains.transportation.service import (
     advance_shipment_status,
     create_carrier,
     create_shipment,
+    create_shipments_bulk,
 )
 
-__all__ = ["advance_shipment_status", "create_carrier", "create_shipment"]
+__all__ = [
+    "advance_shipment_status",
+    "create_carrier",
+    "create_shipment",
+    "create_shipments_bulk",
+]

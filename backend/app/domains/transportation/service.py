@@ -105,6 +105,66 @@ def create_shipment(
     return shipment
 
 
+def create_shipments_bulk(session: Session, *, shipments: list[dict]) -> list[Shipment]:
+    """Batched equivalent of calling create_shipment() once per entry in
+    `shipments` (each a dict with the same keyword arguments
+    create_shipment() takes), in list order.
+
+    Unlike allocate_order_lines_bulk / pick_bulk, shipments don't share
+    any mutable state with each other, so this is a straightforward
+    bulk-insert: all Shipment rows in one flush (to get their ids), then
+    all first-lifecycle-event ShipmentEvent rows in a second flush.
+
+    Raises:
+        ValueError: an entry has neither, or both, of
+            destination_warehouse_id / destination_customer_id set.
+    """
+
+    if not shipments:
+        return []
+
+    created_status_id = get_id_by_code(session, ShipmentStatus, "CREATED")
+    new_shipments: list[Shipment] = []
+
+    for entry in shipments:
+        has_warehouse_dest = entry.get("destination_warehouse_id") is not None
+        has_customer_dest = entry.get("destination_customer_id") is not None
+        if has_warehouse_dest == has_customer_dest:
+            raise ValueError(
+                "exactly one of destination_warehouse_id or destination_customer_id is required"
+            )
+
+        new_shipments.append(
+            Shipment(
+                shipment_number=entry["shipment_number"],
+                carrier_id=entry["carrier_id"],
+                origin_warehouse_id=entry["origin_warehouse_id"],
+                destination_warehouse_id=entry.get("destination_warehouse_id"),
+                destination_customer_id=entry.get("destination_customer_id"),
+                status_id=created_status_id,
+                ship_date=entry.get("ship_date"),
+                estimated_delivery_date=entry.get("estimated_delivery_date"),
+                distance_miles=entry.get("distance_miles"),
+                shipping_cost=entry.get("shipping_cost"),
+            )
+        )
+
+    session.add_all(new_shipments)
+    session.flush()
+
+    session.add_all(
+        ShipmentEvent(
+            shipment_id=shipment.id,
+            status_id=shipment.status_id,
+            occurred_at=entry["occurred_at"],
+        )
+        for shipment, entry in zip(new_shipments, shipments, strict=True)
+    )
+    session.flush()
+
+    return new_shipments
+
+
 def advance_shipment_status(
     session: Session,
     *,

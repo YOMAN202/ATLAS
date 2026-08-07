@@ -9,6 +9,7 @@ from app.domains.transportation.service import (
     advance_shipment_status,
     create_carrier,
     create_shipment,
+    create_shipments_bulk,
 )
 from app.models import Shipment, ShipmentStatus, VehicleType, Warehouse
 
@@ -85,6 +86,69 @@ def test_create_shipment_requires_exactly_one_destination(
             carrier_id=carrier.id,
             origin_warehouse_id=warehouse.id,
             occurred_at=NOW,
+        )
+
+
+def test_create_shipments_bulk_empty_list_returns_empty(db_session):
+    assert create_shipments_bulk(db_session, shipments=[]) == []
+
+
+def test_create_shipments_bulk_matches_single_shipment_behavior(
+    db_session, carrier, warehouse, customer, lookups
+):
+    shipments = create_shipments_bulk(
+        db_session,
+        shipments=[
+            {
+                "shipment_number": "SHIP-BULK-1",
+                "carrier_id": carrier.id,
+                "origin_warehouse_id": warehouse.id,
+                "destination_customer_id": customer.id,
+                "occurred_at": NOW,
+            }
+        ],
+    )
+
+    assert len(shipments) == 1
+    assert _status_code(db_session, shipments[0]) == "CREATED"
+
+
+def test_create_shipments_bulk_creates_all_in_order(
+    db_session, carrier, warehouse, customer, lookups
+):
+    shipments = create_shipments_bulk(
+        db_session,
+        shipments=[
+            {
+                "shipment_number": f"SHIP-BULK-{i}",
+                "carrier_id": carrier.id,
+                "origin_warehouse_id": warehouse.id,
+                "destination_customer_id": customer.id,
+                "occurred_at": NOW,
+            }
+            for i in range(5)
+        ],
+    )
+
+    assert len(shipments) == 5
+    assert [s.shipment_number for s in shipments] == [f"SHIP-BULK-{i}" for i in range(5)]
+    assert all(_status_code(db_session, s) == "CREATED" for s in shipments)
+
+
+def test_create_shipments_bulk_requires_exactly_one_destination(
+    db_session, carrier, warehouse, customer, lookups
+):
+    with pytest.raises(ValueError):
+        create_shipments_bulk(
+            db_session,
+            shipments=[
+                {
+                    "shipment_number": "SHIP-BULK-BAD",
+                    "carrier_id": carrier.id,
+                    "origin_warehouse_id": warehouse.id,
+                    "occurred_at": NOW,
+                }
+            ],
         )
 
 

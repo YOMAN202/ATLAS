@@ -12,6 +12,7 @@ from app.domains.orders.service import (
     create_customer,
     create_order,
     mark_line_shipped,
+    mark_lines_shipped_bulk,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "create_customer",
     "create_order",
     "mark_line_shipped",
+    "mark_lines_shipped_bulk",
 ]

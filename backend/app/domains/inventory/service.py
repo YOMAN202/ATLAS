@@ -205,6 +205,93 @@ def pick(
     return position
 
 
+def pick_bulk(session: Session, *, picks: list[dict]) -> list[InventoryPosition]:
+    """Batched equivalent of calling pick() once per entry in `picks`
+    (each a dict with inventory_position_id, quantity, occurred_at, and
+    optional source_reference_type/source_reference_id), in list order.
+
+    Same BR-2 outcome per pick, including under same-batch contention:
+    multiple picks targeting the same position consume a running
+    in-memory quantity_reserved/quantity_on_hand tracker in list order
+    (same pattern as orders.allocate_order_lines_bulk), so this can never
+    allow an over-pick a same-batch race could otherwise hide.
+
+    Raises:
+        EntityNotFoundError: unknown position.
+        InsufficientInventoryError: BR-2 — a pick would exceed what's
+            currently reserved at that position (evaluated against the
+            running, in-batch reserved total, not just the initial one).
+    """
+
+    if not picks:
+        return []
+
+    position_ids = [entry["inventory_position_id"] for entry in picks]
+    positions_by_id = {
+        position.id: position
+        for position in session.execute(
+            select(InventoryPosition).where(InventoryPosition.id.in_(position_ids))
+        )
+        .scalars()
+        .all()
+    }
+
+    pick_transaction_type = session.execute(
+        select(InventoryTransactionType).where(InventoryTransactionType.code == "PICK")
+    ).scalar_one_or_none()
+    if pick_transaction_type is None:
+        raise EntityNotFoundError("InventoryTransactionType 'PICK' does not exist")
+
+    running_reserved: dict[int, int] = {}
+    running_on_hand: dict[int, int] = {}
+    new_transactions: list[InventoryTransaction] = []
+
+    for entry in picks:
+        inventory_position_id = entry["inventory_position_id"]
+        quantity = entry["quantity"]
+        if quantity <= 0:
+            raise ValueError("quantity must be positive")
+
+        position = positions_by_id.get(inventory_position_id)
+        if position is None:
+            raise EntityNotFoundError(f"InventoryPosition {inventory_position_id} does not exist")
+
+        if inventory_position_id not in running_reserved:
+            running_reserved[inventory_position_id] = position.quantity_reserved
+            running_on_hand[inventory_position_id] = position.quantity_on_hand
+
+        if quantity > running_reserved[inventory_position_id]:
+            raise InsufficientInventoryError(
+                f"Position {position.id}: only "
+                f"{running_reserved[inventory_position_id]} reserved, cannot pick {quantity}",
+                rule="BR-2",
+            )
+
+        running_reserved[inventory_position_id] -= quantity
+        running_on_hand[inventory_position_id] -= quantity
+
+        new_transactions.append(
+            InventoryTransaction(
+                inventory_position_id=inventory_position_id,
+                transaction_type_id=pick_transaction_type.id,
+                quantity_delta=-quantity,
+                occurred_at=entry["occurred_at"],
+                source_reference_type=entry.get("source_reference_type"),
+                source_reference_id=entry.get("source_reference_id"),
+            )
+        )
+
+    for position_id, position in positions_by_id.items():
+        if position_id in running_reserved:
+            position.quantity_reserved = running_reserved[position_id]
+            position.quantity_on_hand = running_on_hand[position_id]
+
+    session.add_all(new_transactions)
+    session.flush()
+
+    return [positions_by_id[entry["inventory_position_id"]] for entry in picks]
+
+
 def reserve(session: Session, *, inventory_position_id: int, quantity: int) -> InventoryPosition:
     """Soft-hold `quantity` units of on-hand stock against an open order
     (FR-4.2). Raises InsufficientInventoryError (BR-2) if it would reserve

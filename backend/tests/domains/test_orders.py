@@ -12,6 +12,7 @@ from app.domains.orders.service import (
     create_customer,
     create_order,
     mark_line_shipped,
+    mark_lines_shipped_bulk,
 )
 from app.domains.shared.exceptions import EntityNotFoundError, InvalidStateTransitionError
 from app.domains.shared.lookups import get_code_by_id
@@ -490,3 +491,72 @@ def test_mark_line_shipped_unknown_shipment_raises(
 def test_mark_line_shipped_unknown_line_raises(db_session, shipment, lookups):
     with pytest.raises(EntityNotFoundError):
         mark_line_shipped(db_session, order_line_id=999999, shipment_id=shipment.id)
+
+
+def test_mark_lines_shipped_bulk_empty_list_returns_empty(db_session):
+    assert mark_lines_shipped_bulk(db_session, links=[]) == []
+
+
+def test_mark_lines_shipped_bulk_matches_single_line_behavior(
+    db_session, pending_order, warehouse, warehouse_zone, product, lookups, shipment
+):
+    position = _stock(
+        db_session,
+        product=product,
+        warehouse=warehouse,
+        warehouse_zone=warehouse_zone,
+        quantity=100,
+    )
+    line = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == pending_order.id)
+    ).scalar_one()
+    allocate_order_line(db_session, order_line_id=line.id, inventory_position_id=position.id)
+
+    result = mark_lines_shipped_bulk(
+        db_session, links=[{"order_line_id": line.id, "shipment_id": shipment.id}]
+    )
+
+    assert len(result) == 1
+    reloaded = db_session.get(OrderLine, line.id)
+    assert reloaded.shipment_id == shipment.id
+
+
+def test_mark_lines_shipped_bulk_unallocated_line_raises(
+    db_session, pending_order, shipment, lookups
+):
+    line = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == pending_order.id)
+    ).scalar_one()
+
+    with pytest.raises(InvalidStateTransitionError):
+        mark_lines_shipped_bulk(
+            db_session, links=[{"order_line_id": line.id, "shipment_id": shipment.id}]
+        )
+
+
+def test_mark_lines_shipped_bulk_unknown_shipment_raises(
+    db_session, pending_order, warehouse, warehouse_zone, product, lookups
+):
+    position = _stock(
+        db_session,
+        product=product,
+        warehouse=warehouse,
+        warehouse_zone=warehouse_zone,
+        quantity=100,
+    )
+    line = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == pending_order.id)
+    ).scalar_one()
+    allocate_order_line(db_session, order_line_id=line.id, inventory_position_id=position.id)
+
+    with pytest.raises(EntityNotFoundError):
+        mark_lines_shipped_bulk(
+            db_session, links=[{"order_line_id": line.id, "shipment_id": 999999}]
+        )
+
+
+def test_mark_lines_shipped_bulk_unknown_line_raises(db_session, shipment, lookups):
+    with pytest.raises(EntityNotFoundError):
+        mark_lines_shipped_bulk(
+            db_session, links=[{"order_line_id": 999999, "shipment_id": shipment.id}]
+        )
