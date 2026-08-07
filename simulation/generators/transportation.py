@@ -41,10 +41,21 @@ def generate_shipments_for_allocated_lines(
     rng: np.random.Generator,
     stats: SimulationStats,
 ) -> None:
+    """Dispatch every fully-allocated, not-yet-shipped line for the day in
+    three bulk calls (pick_bulk, create_shipments_bulk,
+    mark_lines_shipped_bulk) instead of one pick/create_shipment/
+    mark_line_shipped sequence per line — this was ~49% of a simulated
+    day's total cost in profiling (~2,700 lines/day at full scale).
+
+    RNG draws (carrier choice, distance) still happen in a per-line loop,
+    in the same order the lines were queried, before any bulk call — same
+    draw sequence as the old per-line version, so determinism is
+    unaffected by batching the DB work.
+    """
+
     # Joins in the customer_id here (one query for the whole day's batch)
-    # instead of a per-line session.get(Order, ...) in _dispatch_line —
-    # was one of the largest single contributors to per-day DB round-trips
-    # (profiled before the 5-year run).
+    # instead of a per-line session.get(Order, ...) — was one of the
+    # largest single contributors to per-day DB round-trips.
     rows = session.execute(
         select(OrderLine, Order.customer_id)
         .join(Order, Order.id == OrderLine.order_id)
@@ -53,69 +64,83 @@ def generate_shipments_for_allocated_lines(
             OrderLine.shipment_id.is_(None),
         )
     ).all()
+    if not rows:
+        return
+
+    occurred_at = as_datetime(current_date)
+    picks = []
+    shipment_requests = []
+    transit_days_by_line: dict[int, int] = {}
 
     for line, customer_id in rows:
-        _dispatch_line(session, world, line, customer_id, current_date, config, rng, stats)
+        # Carrier -> cost_per_mile is a small, fixed lookup (config.num_carriers,
+        # e.g. 25) computed once at world-init instead of two session.get()
+        # round-trips (Carrier, then VehicleType) per dispatched line.
+        carrier_id = world.carrier_ids[int(rng.integers(0, len(world.carrier_ids)))]
+        cost_per_mile = world.carrier_cost_per_mile[carrier_id]
+        distance_miles = round(rng.uniform(config.shipment_miles_min, config.shipment_miles_max), 2)
+        shipping_cost = round(distance_miles * float(cost_per_mile), 2)
 
+        picks.append(
+            {
+                "inventory_position_id": world.initial_positions[line.product_id],
+                "quantity": line.allocated_quantity,
+                "occurred_at": occurred_at,
+                "source_reference_type": "order_line",
+                "source_reference_id": line.id,
+            }
+        )
+        shipment_requests.append(
+            {
+                "line": line,
+                "shipment_number": f"SHIP-{current_date.isoformat()}-{stats.next_seq():08d}",
+                "carrier_id": carrier_id,
+                "origin_warehouse_id": line.fulfillment_warehouse_id,
+                "destination_customer_id": customer_id,
+                "occurred_at": occurred_at,
+                "ship_date": current_date,
+                "distance_miles": distance_miles,
+                "shipping_cost": shipping_cost,
+            }
+        )
+        transit_days_by_line[line.id] = max(
+            1, round(distance_miles / config.average_transit_miles_per_day)
+        )
 
-def _dispatch_line(
-    session: Session,
-    world: WorldState,
-    line: OrderLine,
-    customer_id: int,
-    current_date: date,
-    config: WorldStateConfig,
-    rng: np.random.Generator,
-    stats: SimulationStats,
-) -> None:
-    # Carrier -> cost_per_mile is a small, fixed lookup (config.num_carriers,
-    # e.g. 25) computed once at world-init (see world_init._create_carriers)
-    # instead of two session.get() round-trips (Carrier, then VehicleType)
-    # on every dispatched line — was one of the largest single contributors
-    # to per-day DB round-trips (profiled before the 5-year run).
-    carrier_id = world.carrier_ids[int(rng.integers(0, len(world.carrier_ids)))]
-    cost_per_mile = world.carrier_cost_per_mile[carrier_id]
-
-    distance_miles = round(rng.uniform(config.shipment_miles_min, config.shipment_miles_max), 2)
-    shipping_cost = round(distance_miles * float(cost_per_mile), 2)
-    occurred_at = as_datetime(current_date)
-
-    inventory.pick(
+    inventory.pick_bulk(session, picks=picks)
+    created_shipments = transportation.create_shipments_bulk(
         session,
-        inventory_position_id=world.initial_positions[line.product_id],
-        quantity=line.allocated_quantity,
-        occurred_at=occurred_at,
-        source_reference_type="order_line",
-        source_reference_id=line.id,
+        shipments=[
+            {k: v for k, v in request.items() if k != "line"} for request in shipment_requests
+        ],
     )
-
-    shipment_number = f"SHIP-{current_date.isoformat()}-{stats.next_seq():08d}"
-    shipment = transportation.create_shipment(
+    orders.mark_lines_shipped_bulk(
         session,
-        shipment_number=shipment_number,
-        carrier_id=carrier_id,
-        origin_warehouse_id=line.fulfillment_warehouse_id,
-        destination_customer_id=customer_id,
-        occurred_at=occurred_at,
-        ship_date=current_date,
-        distance_miles=distance_miles,
-        shipping_cost=shipping_cost,
+        links=[
+            {"order_line_id": request["line"].id, "shipment_id": shipment.id}
+            for request, shipment in zip(shipment_requests, created_shipments, strict=True)
+        ],
     )
-    orders.mark_line_shipped(session, order_line_id=line.id, shipment_id=shipment.id)
-    stats.shipments_created += 1
+    stats.shipments_created += len(created_shipments)
 
-    transit_days = max(1, round(distance_miles / config.average_transit_miles_per_day))
-    schedule = [
-        (current_date + timedelta(days=_STATUS_DAYS_AFTER_CREATION["PICKED"]), "PICKED"),
-        (current_date + timedelta(days=_STATUS_DAYS_AFTER_CREATION["IN_TRANSIT"]), "IN_TRANSIT"),
-        (
-            current_date + timedelta(days=_STATUS_DAYS_AFTER_CREATION["IN_TRANSIT"] + transit_days),
-            "DELIVERED",
-        ),
-    ]
-    world.pending_shipments.append(
-        {"shipment_id": shipment.id, "order_line_id": line.id, "schedule": schedule}
-    )
+    for request, shipment in zip(shipment_requests, created_shipments, strict=True):
+        line_id = request["line"].id
+        transit_days = transit_days_by_line[line_id]
+        schedule = [
+            (current_date + timedelta(days=_STATUS_DAYS_AFTER_CREATION["PICKED"]), "PICKED"),
+            (
+                current_date + timedelta(days=_STATUS_DAYS_AFTER_CREATION["IN_TRANSIT"]),
+                "IN_TRANSIT",
+            ),
+            (
+                current_date
+                + timedelta(days=_STATUS_DAYS_AFTER_CREATION["IN_TRANSIT"] + transit_days),
+                "DELIVERED",
+            ),
+        ]
+        world.pending_shipments.append(
+            {"shipment_id": shipment.id, "order_line_id": line_id, "schedule": schedule}
+        )
 
 
 def advance_pending_shipments(
