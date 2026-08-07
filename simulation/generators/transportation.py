@@ -150,30 +150,52 @@ def advance_pending_shipments(
     stats: SimulationStats,
 ) -> list[tuple[int, date]]:
     """Advance every in-flight shipment whose next scheduled status is
-    due. Returns (order_line_id, delivered_date) for shipments that
-    reached DELIVERED today, so the caller (the engine) can decide
-    whether to queue a return — this module doesn't know about returns.
+    due, in one bulk call (transportation.advance_shipments_status_bulk)
+    instead of one advance_shipment_status() call per due transition —
+    profiling after batching dispatch showed this became the new largest
+    single cost (~56% of a simulated day, since each shipment can have up
+    to 3 transitions total and this runs every day for every in-flight
+    shipment).
+
+    Returns (order_line_id, delivered_date) for shipments that reached
+    DELIVERED today, so the caller (the engine) can decide whether to
+    queue a return — this module doesn't know about returns.
     """
 
     still_pending = []
-    newly_delivered: list[tuple[int, date]] = []
+    due_advances = []
+    # (order_line_id, due_date) per due transition, same list position as
+    # due_advances — kept in lockstep so results can be matched back up
+    # after the bulk call without re-deriving anything from the response.
+    due_context: list[tuple[int, int, date]] = []
 
     for entry in world.pending_shipments:
         schedule = entry["schedule"]
         while schedule and schedule[0][0] <= current_date:
             due_date, status_code = schedule.pop(0)
-            transportation.advance_shipment_status(
-                session,
-                shipment_id=entry["shipment_id"],
-                new_status_code=status_code,
-                occurred_at=as_datetime(due_date),
+            due_advances.append(
+                {
+                    "shipment_id": entry["shipment_id"],
+                    "new_status_code": status_code,
+                    "occurred_at": as_datetime(due_date),
+                }
             )
-            if status_code == "DELIVERED":
-                stats.shipments_delivered += 1
-                newly_delivered.append((entry["order_line_id"], due_date))
+            due_context.append((entry["order_line_id"], entry["shipment_id"], due_date))
 
         if schedule:
             still_pending.append(entry)
 
     world.pending_shipments = still_pending
+
+    if due_advances:
+        transportation.advance_shipments_status_bulk(session, advances=due_advances)
+
+    newly_delivered: list[tuple[int, date]] = []
+    for (order_line_id, _shipment_id, due_date), advance in zip(
+        due_context, due_advances, strict=True
+    ):
+        if advance["new_status_code"] == "DELIVERED":
+            stats.shipments_delivered += 1
+            newly_delivered.append((order_line_id, due_date))
+
     return newly_delivered

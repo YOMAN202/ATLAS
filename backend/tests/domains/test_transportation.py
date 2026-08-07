@@ -7,6 +7,7 @@ from app.domains.shared.exceptions import EntityNotFoundError, InvalidStateTrans
 from app.domains.shared.lookups import get_code_by_id
 from app.domains.transportation.service import (
     advance_shipment_status,
+    advance_shipments_status_bulk,
     create_carrier,
     create_shipment,
     create_shipments_bulk,
@@ -267,4 +268,93 @@ def test_advance_unknown_shipment_raises(db_session, lookups):
     with pytest.raises(EntityNotFoundError):
         advance_shipment_status(
             db_session, shipment_id=999999, new_status_code="PICKED", occurred_at=NOW
+        )
+
+
+def test_advance_shipments_status_bulk_empty_list_returns_empty(db_session):
+    assert advance_shipments_status_bulk(db_session, advances=[]) == []
+
+
+def test_advance_shipments_status_bulk_matches_single_call_behavior(
+    db_session, carrier, warehouse, customer, lookups
+):
+    shipment = create_shipment(
+        db_session,
+        shipment_number="SHIP-BULK-ADV-1",
+        carrier_id=carrier.id,
+        origin_warehouse_id=warehouse.id,
+        destination_customer_id=customer.id,
+        occurred_at=NOW,
+    )
+
+    result = advance_shipments_status_bulk(
+        db_session,
+        advances=[{"shipment_id": shipment.id, "new_status_code": "PICKED", "occurred_at": NOW}],
+    )
+
+    assert len(result) == 1
+    assert _status_code(db_session, result[0]) == "PICKED"
+
+
+# The simulation generator can queue multiple due transitions for the same
+# shipment in one call (e.g. PICKED and IN_TRANSIT both due the same day)
+# — each later entry for that shipment must see the earlier one already
+# applied, exactly as sequential advance_shipment_status() calls would.
+def test_advance_shipments_status_bulk_handles_multiple_transitions_same_shipment(
+    db_session, carrier, warehouse, customer, lookups
+):
+    shipment = create_shipment(
+        db_session,
+        shipment_number="SHIP-BULK-ADV-2",
+        carrier_id=carrier.id,
+        origin_warehouse_id=warehouse.id,
+        destination_customer_id=customer.id,
+        occurred_at=NOW,
+    )
+
+    advance_shipments_status_bulk(
+        db_session,
+        advances=[
+            {"shipment_id": shipment.id, "new_status_code": "PICKED", "occurred_at": NOW},
+            {"shipment_id": shipment.id, "new_status_code": "IN_TRANSIT", "occurred_at": NOW},
+            {"shipment_id": shipment.id, "new_status_code": "DELIVERED", "occurred_at": NOW},
+        ],
+    )
+
+    reloaded = db_session.get(Shipment, shipment.id)
+    assert _status_code(db_session, reloaded) == "DELIVERED"
+    assert reloaded.actual_delivery_date == NOW.date()
+
+
+def test_advance_shipments_status_bulk_out_of_sequence_raises(
+    db_session, carrier, warehouse, customer, lookups
+):
+    shipment = create_shipment(
+        db_session,
+        shipment_number="SHIP-BULK-ADV-3",
+        carrier_id=carrier.id,
+        origin_warehouse_id=warehouse.id,
+        destination_customer_id=customer.id,
+        occurred_at=NOW,
+    )
+
+    with pytest.raises(InvalidStateTransitionError) as exc_info:
+        advance_shipments_status_bulk(
+            db_session,
+            advances=[
+                {
+                    "shipment_id": shipment.id,
+                    "new_status_code": "DELIVERED",
+                    "occurred_at": NOW,
+                }
+            ],
+        )
+    assert exc_info.value.rule == "FR-3.3"
+
+
+def test_advance_shipments_status_bulk_unknown_shipment_raises(db_session, lookups):
+    with pytest.raises(EntityNotFoundError):
+        advance_shipments_status_bulk(
+            db_session,
+            advances=[{"shipment_id": 999999, "new_status_code": "PICKED", "occurred_at": NOW}],
         )

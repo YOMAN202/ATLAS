@@ -9,6 +9,7 @@ so callers get a clear typed error instead of an IntegrityError.
 
 from datetime import datetime
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domains.shared.exceptions import EntityNotFoundError, InvalidStateTransitionError
@@ -212,3 +213,77 @@ def advance_shipment_status(
     session.flush()
 
     return shipment
+
+
+def advance_shipments_status_bulk(session: Session, *, advances: list[dict]) -> list[Shipment]:
+    """Batched equivalent of calling advance_shipment_status() once per
+    entry in `advances` (each a dict with shipment_id, new_status_code,
+    occurred_at, and optional location/notes keys), in list order.
+
+    Each shipment's lifecycle is independent of every other shipment's, so
+    unlike allocate_order_lines_bulk / pick_bulk there's no running/shared
+    state to track — this is a bulk read (shipments + the small, fixed
+    ShipmentStatus lookup table, fetched once instead of per-call), the
+    same FR-3.3 transition validation per entry, then one bulk write.
+
+    Raises the same exceptions, for the same conditions, as
+    advance_shipment_status() — EntityNotFoundError for an unknown
+    shipment, InvalidStateTransitionError for a disallowed transition.
+    """
+
+    if not advances:
+        return []
+
+    shipment_ids = [entry["shipment_id"] for entry in advances]
+    shipments_by_id = {
+        shipment.id: shipment
+        for shipment in session.execute(select(Shipment).where(Shipment.id.in_(shipment_ids)))
+        .scalars()
+        .all()
+    }
+
+    statuses = session.execute(select(ShipmentStatus)).scalars().all()
+    status_id_by_code = {status.code: status.id for status in statuses}
+    status_code_by_id = {status.id: status.code for status in statuses}
+
+    new_events: list[ShipmentEvent] = []
+    result_shipments: list[Shipment] = []
+
+    for entry in advances:
+        shipment_id = entry["shipment_id"]
+        new_status_code = entry["new_status_code"]
+
+        shipment = shipments_by_id.get(shipment_id)
+        if shipment is None:
+            raise EntityNotFoundError(f"Shipment {shipment_id} does not exist")
+
+        current_code = status_code_by_id[shipment.status_id]
+        allowed = _ALLOWED_TRANSITIONS.get(current_code, set())
+        if new_status_code not in allowed:
+            raise InvalidStateTransitionError(
+                f"Shipment {shipment_id} is '{current_code}', cannot move to "
+                f"'{new_status_code}' (allowed: {sorted(allowed) or 'none — terminal state'})",
+                rule="FR-3.3",
+            )
+
+        occurred_at = entry["occurred_at"]
+        shipment.status_id = status_id_by_code[new_status_code]
+        new_events.append(
+            ShipmentEvent(
+                shipment_id=shipment.id,
+                status_id=shipment.status_id,
+                occurred_at=occurred_at,
+                location=entry.get("location"),
+                notes=entry.get("notes"),
+            )
+        )
+
+        if new_status_code == "DELIVERED":
+            shipment.actual_delivery_date = occurred_at.date()
+
+        result_shipments.append(shipment)
+
+    session.add_all(new_events)
+    session.flush()
+
+    return result_shipments

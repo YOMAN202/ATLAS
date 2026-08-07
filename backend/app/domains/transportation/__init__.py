@@ -9,6 +9,7 @@ left for whichever phase wires order dispatch (see orders/service.py).
 
 from app.domains.transportation.service import (
     advance_shipment_status,
+    advance_shipments_status_bulk,
     create_carrier,
     create_shipment,
     create_shipments_bulk,
@@ -16,6 +17,7 @@ from app.domains.transportation.service import (
 
 __all__ = [
     "advance_shipment_status",
+    "advance_shipments_status_bulk",
     "create_carrier",
     "create_shipment",
     "create_shipments_bulk",
