@@ -7,6 +7,7 @@ from sqlalchemy import select
 from app.domains.inventory.service import get_or_create_position, record_transaction
 from app.domains.orders.service import (
     allocate_order_line,
+    allocate_order_lines_bulk,
     compute_order_status,
     create_customer,
     create_order,
@@ -208,6 +209,193 @@ def test_allocate_unknown_line_raises(db_session, warehouse, warehouse_zone, pro
 
     with pytest.raises(EntityNotFoundError):
         allocate_order_line(db_session, order_line_id=999999, inventory_position_id=position.id)
+
+
+def test_allocate_order_lines_bulk_empty_list_returns_empty(db_session):
+    assert allocate_order_lines_bulk(db_session, allocations=[]) == []
+
+
+def test_allocate_order_lines_bulk_matches_single_line_behavior(
+    db_session, pending_order, warehouse, warehouse_zone, product, lookups
+):
+    position = _stock(
+        db_session, product=product, warehouse=warehouse, warehouse_zone=warehouse_zone, quantity=40
+    )
+    line = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == pending_order.id)
+    ).scalar_one()
+
+    result = allocate_order_lines_bulk(
+        db_session, allocations=[{"order_line_id": line.id, "inventory_position_id": position.id}]
+    )
+
+    assert len(result) == 1
+    reloaded = db_session.get(OrderLine, line.id)
+    assert reloaded.allocated_quantity == 40
+    assert reloaded.backordered_quantity == 60
+    assert reloaded.fulfillment_warehouse_id == warehouse.id
+    assert _status_code(db_session, pending_order) == "PARTIALLY_FULFILLED"
+
+
+# BR-2 correctness under batching: two order lines (from two different
+# orders) competing for the same position, in one bulk call, must consume
+# the position's available capacity cumulatively — never allocate more in
+# total than the position actually has, matching what two sequential
+# allocate_order_line() calls would do.
+def test_allocate_order_lines_bulk_shared_position_never_over_allocates(
+    db_session, customer, warehouse, warehouse_zone, product, lookups
+):
+    position = _stock(
+        db_session, product=product, warehouse=warehouse, warehouse_zone=warehouse_zone, quantity=60
+    )
+    order_a = create_order(
+        db_session,
+        order_number="ORD-BULK-A",
+        customer_id=customer.id,
+        order_date=date(2026, 1, 15),
+        lines=[
+            {
+                "product_id": product.id,
+                "line_number": 1,
+                "ordered_quantity": 50,
+                "unit_price": Decimal("19.99"),
+                "unit_cost": Decimal("10.00"),
+            }
+        ],
+    )
+    order_b = create_order(
+        db_session,
+        order_number="ORD-BULK-B",
+        customer_id=customer.id,
+        order_date=date(2026, 1, 15),
+        lines=[
+            {
+                "product_id": product.id,
+                "line_number": 1,
+                "ordered_quantity": 50,
+                "unit_price": Decimal("19.99"),
+                "unit_cost": Decimal("10.00"),
+            }
+        ],
+    )
+    line_a = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == order_a.id)
+    ).scalar_one()
+    line_b = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == order_b.id)
+    ).scalar_one()
+
+    allocate_order_lines_bulk(
+        db_session,
+        allocations=[
+            {"order_line_id": line_a.id, "inventory_position_id": position.id},
+            {"order_line_id": line_b.id, "inventory_position_id": position.id},
+        ],
+    )
+
+    reloaded_a = db_session.get(OrderLine, line_a.id)
+    reloaded_b = db_session.get(OrderLine, line_b.id)
+    reloaded_position = db_session.get(type(position), position.id)
+
+    # First-in-list gets priority (same as calling allocate_order_line()
+    # for A then B sequentially would): A fully allocated, B gets the
+    # remaining 10 and backorders the rest.
+    assert reloaded_a.allocated_quantity == 50
+    assert reloaded_b.allocated_quantity == 10
+    assert reloaded_b.backordered_quantity == 40
+    assert reloaded_position.quantity_reserved == 60
+    assert reloaded_position.quantity_reserved <= reloaded_position.quantity_on_hand
+
+
+def test_allocate_order_lines_bulk_recomputes_status_for_multi_line_order(
+    db_session, customer, warehouse, warehouse_zone, product, product2, lookups
+):
+    position1 = _stock(
+        db_session,
+        product=product,
+        warehouse=warehouse,
+        warehouse_zone=warehouse_zone,
+        quantity=100,
+    )
+    position2 = _stock(
+        db_session,
+        product=product2,
+        warehouse=warehouse,
+        warehouse_zone=warehouse_zone,
+        quantity=100,
+    )
+    order = create_order(
+        db_session,
+        order_number="ORD-BULK-MULTI",
+        customer_id=customer.id,
+        order_date=date(2026, 1, 15),
+        lines=[
+            {
+                "product_id": product.id,
+                "line_number": 1,
+                "ordered_quantity": 10,
+                "unit_price": Decimal("19.99"),
+                "unit_cost": Decimal("10.00"),
+            },
+            {
+                "product_id": product2.id,
+                "line_number": 2,
+                "ordered_quantity": 10,
+                "unit_price": Decimal("9.99"),
+                "unit_cost": Decimal("3.00"),
+            },
+        ],
+    )
+    lines = (
+        db_session.execute(select(OrderLine).where(OrderLine.order_id == order.id)).scalars().all()
+    )
+    line1 = next(line_item for line_item in lines if line_item.product_id == product.id)
+    line2 = next(line_item for line_item in lines if line_item.product_id == product2.id)
+
+    allocate_order_lines_bulk(
+        db_session,
+        allocations=[
+            {"order_line_id": line1.id, "inventory_position_id": position1.id},
+            {"order_line_id": line2.id, "inventory_position_id": position2.id},
+        ],
+    )
+
+    assert _status_code(db_session, order) == "ALLOCATED"
+
+
+def test_allocate_order_lines_bulk_unknown_line_raises(
+    db_session, warehouse, warehouse_zone, product, lookups
+):
+    position = _stock(
+        db_session, product=product, warehouse=warehouse, warehouse_zone=warehouse_zone, quantity=10
+    )
+    with pytest.raises(EntityNotFoundError):
+        allocate_order_lines_bulk(
+            db_session,
+            allocations=[{"order_line_id": 999999, "inventory_position_id": position.id}],
+        )
+
+
+def test_allocate_order_lines_bulk_product_mismatch_raises(
+    db_session, pending_order, warehouse, warehouse_zone, product2, lookups
+):
+    mismatched_position = get_or_create_position(
+        db_session,
+        product_id=product2.id,
+        warehouse_id=warehouse.id,
+        warehouse_zone_id=warehouse_zone.id,
+    )
+    line = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == pending_order.id)
+    ).scalar_one()
+
+    with pytest.raises(InvalidStateTransitionError):
+        allocate_order_lines_bulk(
+            db_session,
+            allocations=[
+                {"order_line_id": line.id, "inventory_position_id": mismatched_position.id}
+            ],
+        )
 
 
 # Pure-function matrix for the order-status derivation, independent of the DB.

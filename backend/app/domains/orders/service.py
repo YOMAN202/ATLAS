@@ -198,6 +198,130 @@ def allocate_order_line(
     return line
 
 
+def allocate_order_lines_bulk(session: Session, *, allocations: list[dict]) -> list[OrderLine]:
+    """Batched equivalent of calling allocate_order_line() once per entry
+    in `allocations` (each a dict with order_line_id, inventory_position_id
+    keys), in list order — same BR-2 validation and per-line outcome, but
+    with bulk reads instead of one session.get() per line/position.
+
+    Multiple allocations targeting the same inventory position, or
+    belonging to the same order, are handled with the same running-state
+    semantics as calling allocate_order_line() sequentially: each
+    position's available-to-reserve capacity is tracked and consumed in
+    list order (so BR-2 can never be violated by a same-batch race), and
+    each touched order's status is recomputed once at the end from its
+    complete, fully-updated set of lines — equivalent to the sequential
+    version's final recomputation for that order.
+
+    Raises the same exceptions, for the same conditions, as
+    allocate_order_line() — EntityNotFoundError for an unknown line or
+    position, InvalidStateTransitionError for a line with nothing left to
+    allocate or a position/line product mismatch.
+    """
+
+    if not allocations:
+        return []
+
+    line_ids = [entry["order_line_id"] for entry in allocations]
+    position_ids = [entry["inventory_position_id"] for entry in allocations]
+
+    lines_by_id = {
+        line.id: line
+        for line in session.execute(select(OrderLine).where(OrderLine.id.in_(line_ids)))
+        .scalars()
+        .all()
+    }
+    positions_by_id = {
+        position.id: position
+        for position in session.execute(
+            select(InventoryPosition).where(InventoryPosition.id.in_(position_ids))
+        )
+        .scalars()
+        .all()
+    }
+
+    # Running quantity_reserved per touched position, seeded from the
+    # bulk-fetched snapshot and consumed in list order as this batch's
+    # allocations are processed — mirrors reserve()'s
+    # available = on_hand - reserved check, kept current in-memory instead
+    # of via N separate reserve() writes.
+    running_reserved: dict[int, int] = {}
+    touched_order_ids: set[int] = set()
+    result_lines: list[OrderLine] = []
+
+    for entry in allocations:
+        order_line_id = entry["order_line_id"]
+        inventory_position_id = entry["inventory_position_id"]
+
+        line = lines_by_id.get(order_line_id)
+        if line is None:
+            raise EntityNotFoundError(f"OrderLine {order_line_id} does not exist")
+
+        remaining = line.ordered_quantity - line.allocated_quantity - line.backordered_quantity
+        if remaining <= 0:
+            raise InvalidStateTransitionError(
+                f"OrderLine {order_line_id} has no remaining quantity to allocate "
+                f"(ordered={line.ordered_quantity}, allocated={line.allocated_quantity}, "
+                f"backordered={line.backordered_quantity})"
+            )
+
+        position = positions_by_id.get(inventory_position_id)
+        if position is None:
+            raise EntityNotFoundError(f"InventoryPosition {inventory_position_id} does not exist")
+        if position.product_id != line.product_id:
+            raise InvalidStateTransitionError(
+                f"InventoryPosition {inventory_position_id} is for product "
+                f"{position.product_id}, but OrderLine {order_line_id} is for product "
+                f"{line.product_id}"
+            )
+
+        if inventory_position_id not in running_reserved:
+            running_reserved[inventory_position_id] = position.quantity_reserved
+
+        available = position.quantity_on_hand - running_reserved[inventory_position_id]
+        can_allocate = min(available, remaining)
+
+        if can_allocate > 0:
+            running_reserved[inventory_position_id] += can_allocate
+            line.allocated_quantity += can_allocate
+            if line.fulfillment_warehouse_id is None:
+                line.fulfillment_warehouse_id = position.warehouse_id
+
+        shortfall = remaining - can_allocate
+        if shortfall > 0:
+            line.backordered_quantity += shortfall
+
+        touched_order_ids.add(line.order_id)
+        result_lines.append(line)
+
+    for position_id, final_reserved in running_reserved.items():
+        positions_by_id[position_id].quantity_reserved = final_reserved
+
+    session.flush()
+
+    all_lines_by_order: dict[int, list[OrderLine]] = {}
+    for line in (
+        session.execute(select(OrderLine).where(OrderLine.order_id.in_(touched_order_ids)))
+        .scalars()
+        .all()
+    ):
+        all_lines_by_order.setdefault(line.order_id, []).append(line)
+
+    orders_by_id = {
+        order.id: order
+        for order in session.execute(select(Order).where(Order.id.in_(touched_order_ids)))
+        .scalars()
+        .all()
+    }
+    for order_id, order in orders_by_id.items():
+        order.status_id = get_id_by_code(
+            session, OrderStatus, compute_order_status(all_lines_by_order[order_id])
+        )
+
+    session.flush()
+    return result_lines
+
+
 def mark_line_shipped(session: Session, *, order_line_id: int, shipment_id: int) -> OrderLine:
     """Link a fully-allocated order line to the shipment fulfilling it.
 
