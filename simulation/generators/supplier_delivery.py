@@ -14,7 +14,6 @@ from datetime import date
 
 import numpy as np
 from app.domains import procurement
-from app.models import InventoryPosition
 from sqlalchemy.orm import Session
 
 from simulation.config.world_state import WorldStateConfig
@@ -55,8 +54,10 @@ def _receive_delivery(
     ordered_quantity = entry["ordered_quantity"]
     quality_rejected = int(rng.binomial(ordered_quantity, config.quality_rejection_rate))
 
-    position_id = world.initial_positions[entry["product_id"]]
-    position = session.get(InventoryPosition, position_id)
+    # A position's zone never changes after world-init (FR-2.2 — no
+    # cross-zone bin-picking), so this is a cached lookup, not a fresh
+    # session.get(InventoryPosition, ...) per delivery.
+    warehouse_zone_id = world.product_warehouse_zone[entry["product_id"]]
 
     procurement.receive_purchase_order_line(
         session,
@@ -64,7 +65,7 @@ def _receive_delivery(
         received_quantity=ordered_quantity,
         quality_rejected_quantity=quality_rejected,
         delivery_date=current_date,
-        warehouse_zone_id=position.warehouse_zone_id,
+        warehouse_zone_id=warehouse_zone_id,
         occurred_at=as_datetime(current_date),
     )
     stats.purchase_order_lines_received += 1

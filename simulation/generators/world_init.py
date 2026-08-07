@@ -63,6 +63,15 @@ class WorldState:
     # _create_carriers) so transportation dispatch never needs a
     # per-line session.get(Carrier, ...) / session.get(VehicleType, ...).
     carrier_cost_per_mile: dict[int, Decimal]
+    # supplier_id -> default_lead_time_days, precomputed at world-init (see
+    # _create_suppliers) so the procurement generator never needs a
+    # per-reorder session.get(Supplier, ...).
+    supplier_lead_times: dict[int, int]
+    # product_id -> warehouse_zone_id, precomputed at world-init (see
+    # _seed_initial_inventory) — a position's zone never changes after
+    # creation, so supplier_delivery/returns can read it here instead of a
+    # fresh session.get(InventoryPosition, ...) just for the zone id.
+    product_warehouse_zone: dict[int, int]
 
     # Runtime state threaded across simulated days by the day-advancing
     # generators (not populated here — world_init only creates master
@@ -101,7 +110,7 @@ def create_world(
         product_ids, demand_weights, product_suppliers, supplier_lead_times, config
     )
 
-    initial_positions = _seed_initial_inventory(
+    initial_positions, product_warehouse_zone = _seed_initial_inventory(
         session, config, rng, product_ids, warehouse_ids, warehouse_zone_ids, reorder_thresholds
     )
 
@@ -120,6 +129,8 @@ def create_world(
         reorder_thresholds=reorder_thresholds,
         reorder_quantities=reorder_quantities,
         carrier_cost_per_mile=carrier_cost_per_mile,
+        supplier_lead_times=supplier_lead_times,
+        product_warehouse_zone=product_warehouse_zone,
     )
 
 
@@ -360,7 +371,7 @@ def _seed_initial_inventory(
     warehouse_ids: list[int],
     warehouse_zone_ids: dict[int, list[int]],
     reorder_thresholds: dict[int, int],
-) -> dict[int, int]:
+) -> tuple[dict[int, int], dict[int, int]]:
     """One seeded position per product, in one randomly chosen warehouse
     zone, at initial_inventory_multiplier x that product's own reorder
     threshold — sparsified (TDD §10: "a SKU not yet stocked at a
@@ -369,15 +380,22 @@ def _seed_initial_inventory(
     (demand-derived) threshold, rather than one global quantity, is what
     lets every demand tier — not just the highest-volume SKUs — reach its
     first real reorder within the validation window.
+
+    Also returns product_id -> warehouse_zone_id: a position's zone never
+    changes after creation (no cross-zone bin-picking, FR-2.2), so callers
+    that only need the zone id (supplier_delivery, returns) can read it
+    from WorldState instead of a fresh session.get(InventoryPosition, ...).
     """
 
     initial_positions: dict[int, int] = {}
+    product_warehouse_zone: dict[int, int] = {}
     occurred_at = as_datetime(config.start_date)
 
     for product_id in product_ids:
         warehouse_id = warehouse_ids[int(rng.integers(0, len(warehouse_ids)))]
         zone_ids = warehouse_zone_ids[warehouse_id]
         zone_id = zone_ids[int(rng.integers(0, len(zone_ids)))]
+        product_warehouse_zone[product_id] = zone_id
 
         initial_quantity = math.ceil(
             reorder_thresholds[product_id] * config.initial_inventory_multiplier
@@ -397,4 +415,4 @@ def _seed_initial_inventory(
         )
         initial_positions[product_id] = position.id
 
-    return initial_positions
+    return initial_positions, product_warehouse_zone

@@ -13,7 +13,7 @@ from datetime import date, timedelta
 
 import numpy as np
 from app.domains import returns
-from app.models import InventoryPosition, OrderLine, ReturnLine
+from app.models import OrderLine, ReturnLine
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -148,8 +148,9 @@ def _inspect(
     is_sellable = rng.random() < _SELLABLE_ON_INSPECTION_PROBABILITY
     warehouse_zone_id = None
     if is_sellable:
-        position = session.get(InventoryPosition, world.initial_positions[product_id])
-        warehouse_zone_id = position.warehouse_zone_id
+        # Cached at world-init (FR-2.2 — a position's zone never changes)
+        # instead of a fresh session.get(InventoryPosition, ...).
+        warehouse_zone_id = world.product_warehouse_zone[product_id]
         disposition_code = "SELLABLE"
     else:
         disposition_code = _NON_SELLABLE_DISPOSITION_CODES[

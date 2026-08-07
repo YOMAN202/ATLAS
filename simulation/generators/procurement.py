@@ -24,7 +24,7 @@ from datetime import date, timedelta
 
 import numpy as np
 from app.domains import procurement
-from app.models import InventoryPosition, PurchaseOrderLine, Supplier
+from app.models import InventoryPosition, PurchaseOrderLine
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -41,12 +41,32 @@ def run_reorder_heuristic(
     rng: np.random.Generator,
     stats: SimulationStats,
 ) -> None:
+    # One bulk fetch for every not-yet-on-order product's position, instead
+    # of an individual session.get() per product per day (up to
+    # config.num_skus round-trips/day) — the single largest identified
+    # bottleneck in the pre-optimization profiling pass.
+    candidate_position_ids = [
+        world.initial_positions[product_id]
+        for product_id in world.product_ids
+        if product_id not in world.products_with_open_po
+    ]
+    if not candidate_position_ids:
+        return
+
+    positions_by_id = {
+        position.id: position
+        for position in session.execute(
+            select(InventoryPosition).where(InventoryPosition.id.in_(candidate_position_ids))
+        )
+        .scalars()
+        .all()
+    }
+
     for product_id in world.product_ids:
         if product_id in world.products_with_open_po:
             continue
 
-        position_id = world.initial_positions[product_id]
-        position = session.get(InventoryPosition, position_id)
+        position = positions_by_id[world.initial_positions[product_id]]
         if position.quantity_on_hand >= world.reorder_thresholds[product_id]:
             continue
 
@@ -65,9 +85,9 @@ def _create_reorder(
 ) -> None:
     supplier_ids = world.product_suppliers[product_id]
     supplier_id = supplier_ids[int(rng.integers(0, len(supplier_ids)))]
-    supplier = session.get(Supplier, supplier_id)
+    lead_time_days = world.supplier_lead_times[supplier_id]
 
-    expected_delivery_date = current_date + timedelta(days=supplier.default_lead_time_days)
+    expected_delivery_date = current_date + timedelta(days=lead_time_days)
     unit_cost, _ = world.product_prices[product_id]
 
     po_number = f"PO-{current_date.isoformat()}-{stats.next_seq():08d}"
