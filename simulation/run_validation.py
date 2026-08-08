@@ -28,7 +28,7 @@ def main() -> None:
         t1 = time.perf_counter()
         print(f"World initialized in {t1 - t0:.1f}s", flush=True)
 
-        def _report_progress(day_index: int, stats) -> None:
+        def _report_progress(day_index: int, stats, _rng) -> None:
             elapsed = time.perf_counter() - t1
             print(
                 f"Day {day_index}/{config.num_days} committed "
