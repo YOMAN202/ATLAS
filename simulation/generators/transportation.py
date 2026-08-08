@@ -56,6 +56,11 @@ def generate_shipments_for_allocated_lines(
     # Joins in the customer_id here (one query for the whole day's batch)
     # instead of a per-line session.get(Order, ...) — was one of the
     # largest single contributors to per-day DB round-trips.
+    #
+    # ORDER BY is required for determinism, not just style: RNG draws
+    # (carrier, distance) below happen in this query's row order, so an
+    # unordered `SELECT` would make which line gets which carrier/distance
+    # unreproducible run-to-run even with the same seed.
     rows = session.execute(
         select(OrderLine, Order.customer_id)
         .join(Order, Order.id == OrderLine.order_id)
@@ -63,6 +68,7 @@ def generate_shipments_for_allocated_lines(
             OrderLine.allocated_quantity == OrderLine.ordered_quantity,
             OrderLine.shipment_id.is_(None),
         )
+        .order_by(OrderLine.id)
     ).all()
     if not rows:
         return

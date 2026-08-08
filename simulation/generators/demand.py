@@ -114,8 +114,20 @@ def generate_daily_orders(
     stats.order_lines_created += sum(len(request["lines"]) for request in order_requests)
 
     order_ids = [order.id for order in created_orders]
+    # ORDER BY is not optional here: allocate_order_lines_bulk processes
+    # lines in list order, and its shared-position running-reservation
+    # tracker means *which order* competing lines arrive in can change who
+    # gets stock vs. backordered. An unordered `IN (...)` SELECT doesn't
+    # guarantee row order, and a since-fixed bug here (missing ORDER BY)
+    # caused a real, measured determinism divergence over a 90-day run —
+    # ordering by id restores the same creation-order sequence the old
+    # per-order loop guaranteed implicitly.
     created_order_lines = (
-        session.execute(select(OrderLine).where(OrderLine.order_id.in_(order_ids))).scalars().all()
+        session.execute(
+            select(OrderLine).where(OrderLine.order_id.in_(order_ids)).order_by(OrderLine.id)
+        )
+        .scalars()
+        .all()
     )
 
     allocations = [
