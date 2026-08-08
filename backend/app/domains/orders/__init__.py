@@ -11,6 +11,7 @@ from app.domains.orders.service import (
     allocate_order_lines_bulk,
     create_customer,
     create_order,
+    create_orders_bulk,
     mark_line_shipped,
     mark_lines_shipped_bulk,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "allocate_order_lines_bulk",
     "create_customer",
     "create_order",
+    "create_orders_bulk",
     "mark_line_shipped",
     "mark_lines_shipped_bulk",
 ]

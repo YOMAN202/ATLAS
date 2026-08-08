@@ -11,6 +11,7 @@ from app.domains.orders.service import (
     compute_order_status,
     create_customer,
     create_order,
+    create_orders_bulk,
     mark_line_shipped,
     mark_lines_shipped_bulk,
 )
@@ -96,6 +97,87 @@ def test_create_order_starts_pending_unallocated(db_session, pending_order):
     ).scalar_one()
     assert line.allocated_quantity == 0
     assert line.backordered_quantity == 0
+
+
+def test_create_orders_bulk_empty_list_returns_empty(db_session):
+    assert create_orders_bulk(db_session, orders=[]) == []
+
+
+def test_create_orders_bulk_matches_single_order_behavior(db_session, customer, product, lookups):
+    orders = create_orders_bulk(
+        db_session,
+        orders=[
+            {
+                "order_number": "ORD-BULK-1",
+                "customer_id": customer.id,
+                "order_date": date(2026, 1, 15),
+                "lines": [
+                    {
+                        "product_id": product.id,
+                        "line_number": 1,
+                        "ordered_quantity": 25,
+                        "unit_price": Decimal("19.99"),
+                        "unit_cost": Decimal("10.00"),
+                    }
+                ],
+            }
+        ],
+    )
+
+    assert len(orders) == 1
+    assert _status_code(db_session, orders[0]) == "PENDING"
+    line = db_session.execute(
+        select(OrderLine).where(OrderLine.order_id == orders[0].id)
+    ).scalar_one()
+    assert line.ordered_quantity == 25
+    assert line.allocated_quantity == 0
+
+
+def test_create_orders_bulk_creates_all_in_order_with_correct_lines(
+    db_session, customer, product, product2, lookups
+):
+    orders = create_orders_bulk(
+        db_session,
+        orders=[
+            {
+                "order_number": f"ORD-BULK-MULTI-{i}",
+                "customer_id": customer.id,
+                "order_date": date(2026, 1, 15),
+                "lines": [
+                    {
+                        "product_id": product.id,
+                        "line_number": 1,
+                        "ordered_quantity": 10 + i,
+                        "unit_price": Decimal("19.99"),
+                        "unit_cost": Decimal("10.00"),
+                    },
+                    {
+                        "product_id": product2.id,
+                        "line_number": 2,
+                        "ordered_quantity": 5 + i,
+                        "unit_price": Decimal("9.99"),
+                        "unit_cost": Decimal("3.00"),
+                    },
+                ],
+            }
+            for i in range(4)
+        ],
+    )
+
+    assert len(orders) == 4
+    assert [o.order_number for o in orders] == [f"ORD-BULK-MULTI-{i}" for i in range(4)]
+
+    for i, order in enumerate(orders):
+        lines = (
+            db_session.execute(select(OrderLine).where(OrderLine.order_id == order.id))
+            .scalars()
+            .all()
+        )
+        assert len(lines) == 2
+        line1 = next(line for line in lines if line.product_id == product.id)
+        line2 = next(line for line in lines if line.product_id == product2.id)
+        assert line1.ordered_quantity == 10 + i
+        assert line2.ordered_quantity == 5 + i
 
 
 # BR-2: full stock available -> the line is fully allocated, order -> ALLOCATED.

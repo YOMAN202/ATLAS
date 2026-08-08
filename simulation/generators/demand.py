@@ -83,24 +83,40 @@ def generate_daily_orders(
     rng: np.random.Generator,
     stats: SimulationStats,
 ) -> None:
-    """Create the day's orders, then allocate every one of their lines in
-    a single bulk call (orders.allocate_order_lines_bulk) instead of one
-    allocate_order_line() call per line — allocation was the highest-volume
-    per-day operation (~2,700 lines/day at full scale), each previously a
-    separate round-trip.
+    """Build the day's order requests, create them all in one bulk call
+    (orders.create_orders_bulk), then allocate every resulting line in a
+    second bulk call (orders.allocate_order_lines_bulk).
+
+    Order creation was identified as the single largest per-day cost
+    (~34% in steady-state profiling) — it was the one high-volume
+    operation left unbatched (~1,000+ individual create_order() calls/day,
+    each with its own two flushes) after allocation, dispatch, and status
+    advancement were already batched.
+
+    RNG draws (customer, product selection, quantities) happen while
+    building each order's request dict, in the same per-order sequence as
+    before — no DB writes happen until after all of the day's orders have
+    been built, so the draw sequence, and therefore determinism, is
+    unaffected by deferring the actual inserts to one bulk call.
     """
 
     expected_orders = config.base_daily_order_rate * seasonal_multiplier(current_date, config)
     num_orders = int(rng.poisson(expected_orders))
 
-    created_order_lines: list[OrderLine] = []
-    for _ in range(num_orders):
-        created_order_lines.extend(
-            _create_one_order(session, world, current_date, config, rng, stats)
-        )
-
-    if not created_order_lines:
+    order_requests = [
+        _build_one_order_request(world, current_date, config, rng, stats) for _ in range(num_orders)
+    ]
+    if not order_requests:
         return
+
+    created_orders = orders.create_orders_bulk(session, orders=order_requests)
+    stats.orders_created += len(created_orders)
+    stats.order_lines_created += sum(len(request["lines"]) for request in order_requests)
+
+    order_ids = [order.id for order in created_orders]
+    created_order_lines = (
+        session.execute(select(OrderLine).where(OrderLine.order_id.in_(order_ids))).scalars().all()
+    )
 
     allocations = [
         {
@@ -118,16 +134,16 @@ def generate_daily_orders(
             stats.order_lines_fully_allocated += 1
 
 
-def _create_one_order(
-    session: Session,
+def _build_one_order_request(
     world: WorldState,
     current_date: date,
     config: WorldStateConfig,
     rng: np.random.Generator,
     stats: SimulationStats,
-) -> list[OrderLine]:
-    """Create one order and its lines (unallocated). Returns the created
-    lines so the caller can batch allocation across the whole day."""
+) -> dict:
+    """Draw one order's customer/products/quantities and return it as a
+    plain dict — no DB writes here; the caller collects a whole day's
+    worth of these and creates them in one bulk call."""
 
     customer_id = world.customer_ids[int(rng.integers(0, len(world.customer_ids)))]
     num_lines = int(rng.integers(1, config.max_lines_per_order + 1))
@@ -152,15 +168,9 @@ def _create_one_order(
             }
         )
 
-    order_number = f"ORD-{current_date.isoformat()}-{stats.next_seq():08d}"
-    order = orders.create_order(
-        session,
-        order_number=order_number,
-        customer_id=customer_id,
-        order_date=current_date,
-        lines=lines,
-    )
-    stats.orders_created += 1
-    stats.order_lines_created += len(lines)
-
-    return session.execute(select(OrderLine).where(OrderLine.order_id == order.id)).scalars().all()
+    return {
+        "order_number": f"ORD-{current_date.isoformat()}-{stats.next_seq():08d}",
+        "customer_id": customer_id,
+        "order_date": current_date,
+        "lines": lines,
+    }

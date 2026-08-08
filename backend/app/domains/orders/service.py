@@ -134,6 +134,60 @@ def create_order(
     return order
 
 
+def create_orders_bulk(session: Session, *, orders: list[dict]) -> list[Order]:
+    """Batched equivalent of calling create_order() once per entry in
+    `orders` (each a dict with order_number, customer_id, order_date,
+    lines keys — same shape create_order() takes, just plural), in list
+    order.
+
+    Orders don't share any mutable state with each other, so — like
+    create_shipments_bulk — this is a straightforward two-flush bulk
+    insert (all Order rows in one flush to get their ids, then all
+    OrderLine rows in a second flush) instead of one create_order() call
+    per order, each with its own two flushes. Order creation was
+    identified as the single largest per-day cost (~34%) in steady-state
+    profiling, entirely from this previously-unbatched N+1 pattern.
+
+    Returns the created Order objects only, in the same order as the
+    input list — callers needing the created OrderLine rows (e.g. to
+    allocate them) should query for them afterward, same as existing
+    create_order() callers already do.
+    """
+
+    if not orders:
+        return []
+
+    pending_status_id = get_id_by_code(session, OrderStatus, "PENDING")
+    new_orders = [
+        Order(
+            order_number=entry["order_number"],
+            customer_id=entry["customer_id"],
+            status_id=pending_status_id,
+            order_date=entry["order_date"],
+        )
+        for entry in orders
+    ]
+    session.add_all(new_orders)
+    session.flush()
+
+    new_lines = [
+        OrderLine(
+            order_id=order.id,
+            product_id=line["product_id"],
+            line_number=line["line_number"],
+            ordered_quantity=line["ordered_quantity"],
+            unit_price=line["unit_price"],
+            unit_cost=line["unit_cost"],
+        )
+        for order, entry in zip(new_orders, orders, strict=True)
+        for line in entry["lines"]
+    ]
+    session.add_all(new_lines)
+    session.flush()
+
+    return new_orders
+
+
 def allocate_order_line(
     session: Session, *, order_line_id: int, inventory_position_id: int
 ) -> OrderLine:
