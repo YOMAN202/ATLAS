@@ -14,7 +14,14 @@ from app.core.config import settings
 from sqlalchemy.engine import make_url
 
 TABLES_IN_DROP_ORDER = [
-    # Summary tables and facts first — they FK to dimensions.
+    # ETL process metadata (Phase 5) — staging/quarantine/metrics FK to
+    # etl_run_log, so they must go before it; etl_watermark has no FKs.
+    "etl_run_table_metrics",
+    "dq_quarantine",
+    "etl_extract_staging",
+    "etl_watermark",
+    "etl_run_log",
+    # Summary tables and facts next — they FK to dimensions.
     "summary_daily_revenue_by_region",
     "fact_returns",
     "fact_supplier_delivery",
