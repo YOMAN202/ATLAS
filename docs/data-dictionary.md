@@ -1,6 +1,6 @@
 # ATLAS Data Dictionary
 
-**OLTP section: complete (Phase 1).** OLAP section arrives in Phase 4.
+**OLTP section: complete (Phase 1). OLAP section: complete (Phase 4).**
 
 Conventions applied throughout (Master Prompt §5): surrogate integer PK
 (`id`) on every table; every FK column indexed (InnoDB auto-indexes FK
@@ -284,6 +284,236 @@ FR-3.3 status-history/audit-trail.
 | occurred_at | DATETIME | NOT NULL | |
 | location | VARCHAR(255) | NULL | Optional checkpoint location |
 | notes | VARCHAR(500) | NULL | e.g. exception reason |
+
+---
+
+## OLAP Data Warehouse (Phase 4)
+
+Star schema, Kimball methodology (TDD §4.2). Every dimension has a
+surrogate key (`<dim>_key`, `AUTO_INCREMENT`) distinct from the OLTP
+`id` (ADR-011, `docs/ATLAS-TDD.md` §14); every fact has a
+`source_*_id`/grain-composite `UNIQUE` constraint that is both its
+idempotency key for Phase 5's ETL upsert and its grain enforcement.
+DDL: `etl/warehouse_ddl/`. Diagram: `docs/diagrams/star-schema.md`.
+
+### dim_date
+Type 1 (generated, no OLTP source — see `01_dim_date.sql`). Grain: one row per calendar day. Populated 2021-01-01 through 2022-01-31, covering the validated 365-day Phase 3 dataset plus trailing lead-time/return dates.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| date_key | INT | PK | `YYYYMMDD` |
+| full_date | DATE | UNIQUE, NOT NULL | |
+| day_of_week | TINYINT | NOT NULL | 1=Sunday..7=Saturday |
+| day_name | VARCHAR(10) | NOT NULL | |
+| day_of_month | TINYINT | NOT NULL | |
+| day_of_year | SMALLINT | NOT NULL | |
+| week_of_year | TINYINT | NOT NULL | |
+| month_number | TINYINT | NOT NULL | |
+| month_name | VARCHAR(10) | NOT NULL | |
+| quarter | TINYINT | NOT NULL | |
+| year | SMALLINT | NOT NULL | |
+| is_weekend | TINYINT(1) | NOT NULL | |
+
+### dim_region
+Type 1. Grain: one row per region. Conformed "outrigger" — reached only through `dim_customer`/`dim_warehouse`, not linked to any fact directly. Source: `atlas_oltp.regions`.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| region_key | INT | PK | Surrogate key |
+| region_id | INT | UNIQUE, NOT NULL | OLTP `regions.id` |
+| region_code | VARCHAR(20) | UNIQUE, NOT NULL | |
+| region_name | VARCHAR(100) | NOT NULL | |
+| source_updated_at | DATETIME | NOT NULL | Type-1 refresh watermark |
+
+### dim_product
+Type 1 (TDD §4.2: attribute changes not analytically significant at this scope). Grain: one row per product. Source: `atlas_oltp.products`.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| product_key | INT | PK | Surrogate key |
+| product_id | INT | UNIQUE, NOT NULL | OLTP `products.id` |
+| sku | VARCHAR(30) | UNIQUE, NOT NULL | |
+| product_name | VARCHAR(200) | NOT NULL | |
+| category | VARCHAR(100) | NULL | |
+| unit_of_measure | VARCHAR(10) | NOT NULL | |
+| current_unit_cost | DECIMAL(12,2) | NOT NULL | |
+| current_unit_price | DECIMAL(12,2) | NOT NULL | |
+| is_active | TINYINT(1) | NOT NULL | |
+| source_updated_at | DATETIME | NOT NULL | Type-1 refresh watermark |
+
+### dim_supplier
+**SCD Type 2** (TDD §4.2/ADR-006: contract terms and lead times change over time). Grain: one row per supplier **per version** — `supplier_id` intentionally repeats across rows. MySQL 8 has no partial/filtered unique index, so "exactly one `is_current=1` row per supplier" is ETL-enforced, not DB-enforced (ADR-012). Source: `atlas_oltp.suppliers`.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| supplier_key | INT | PK | Surrogate key |
+| supplier_id | INT | NOT NULL | OLTP `suppliers.id`; repeats across versions |
+| supplier_code | VARCHAR(30) | NOT NULL | |
+| supplier_name | VARCHAR(150) | NOT NULL | |
+| contact_email / contact_phone / address fields | VARCHAR | NULL | |
+| payment_terms_days | INT | NOT NULL | Tracked (SCD2-triggering) attribute |
+| default_lead_time_days | INT | NOT NULL | Tracked (SCD2-triggering) attribute |
+| is_active | TINYINT(1) | NOT NULL | |
+| effective_from | DATE | NOT NULL, UNIQUE with supplier_id | |
+| effective_to | DATE | NULL | |
+| is_current | TINYINT(1) | NOT NULL | ETL-enforced uniqueness, see above |
+| source_updated_at | DATETIME | NOT NULL | |
+
+### dim_warehouse
+**SCD Type 2** (TDD §4.2/ADR-006: capacity changes over time). Grain: one row per warehouse **per version**. Same MySQL partial-unique-index limitation as `dim_supplier` (ADR-012). FK to `dim_region` (outrigger). Source: `atlas_oltp.warehouses`.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| warehouse_key | INT | PK | Surrogate key |
+| warehouse_id | INT | NOT NULL | OLTP `warehouses.id`; repeats across versions |
+| warehouse_code | VARCHAR(20) | NOT NULL | |
+| warehouse_name | VARCHAR(150) | NOT NULL | |
+| address fields | VARCHAR | NULL | |
+| region_key | INT | FK → dim_region.region_key, NOT NULL | |
+| total_capacity_units | INT | NOT NULL | Tracked (SCD2-triggering) attribute |
+| is_active | TINYINT(1) | NOT NULL | |
+| effective_from | DATE | NOT NULL, UNIQUE with warehouse_id | |
+| effective_to | DATE | NULL | |
+| is_current | TINYINT(1) | NOT NULL | ETL-enforced uniqueness |
+| source_updated_at | DATETIME | NOT NULL | |
+
+### dim_carrier
+Type 1. Grain: one row per carrier. Denormalized with its `vehicle_types` lookup row (not one of the 7 named conformed dimensions, so collapsed rather than snowflaked). Source: `atlas_oltp.carriers`.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| carrier_key | INT | PK | Surrogate key |
+| carrier_id | INT | UNIQUE, NOT NULL | OLTP `carriers.id` |
+| carrier_code | VARCHAR(20) | UNIQUE, NOT NULL | |
+| carrier_name | VARCHAR(150) | NOT NULL | |
+| vehicle_type_code / vehicle_type_name | VARCHAR | NOT NULL | Denormalized from `vehicle_types` |
+| vehicle_capacity_units | INT | NOT NULL | |
+| vehicle_cost_per_mile | DECIMAL(12,2) | NOT NULL | |
+| is_active | TINYINT(1) | NOT NULL | |
+| source_updated_at | DATETIME | NOT NULL | |
+
+### dim_customer
+Type 1. Grain: one row per customer. FK to `dim_region` (outrigger). Source: `atlas_oltp.customers`.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| customer_key | INT | PK | Surrogate key |
+| customer_id | INT | UNIQUE, NOT NULL | OLTP `customers.id` |
+| customer_code | VARCHAR(30) | UNIQUE, NOT NULL | |
+| customer_name / email / phone / address fields | VARCHAR | NULL/NOT NULL as source | |
+| region_key | INT | FK → dim_region.region_key, NOT NULL | |
+| source_updated_at | DATETIME | NOT NULL | |
+
+### fact_orders
+**Grain: one row per order line.** FKs per TDD §4.2's ER diagram (`order_date_key`, `product_key`, `customer_key`) plus `fulfillment_warehouse_key` (nullable — an addition beyond the literal diagram, grounded in `order_lines.fulfillment_warehouse_id`, needed for the location-aware "cost-to-serve" KPI). No ratios stored — fulfillment rate is `SUM(allocated_quantity)/SUM(ordered_quantity)` at query time.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| order_line_key | INT | PK | Surrogate key |
+| source_order_line_id | INT | UNIQUE, NOT NULL | Grain/idempotency key; `order_lines.id` |
+| order_number / order_line_number / shipment_number | VARCHAR/INT | shipment_number NULL | Degenerate dimensions |
+| order_date_key | INT | FK → dim_date | |
+| product_key | INT | FK → dim_product | |
+| customer_key | INT | FK → dim_customer | |
+| fulfillment_warehouse_key | INT | FK → dim_warehouse, NULL | Addition beyond TDD's literal ER diagram |
+| ordered_quantity / allocated_quantity / backordered_quantity | INT | NOT NULL | |
+| unit_price / unit_cost | DECIMAL(12,2) | NOT NULL | |
+| extended_revenue / extended_cost / gross_margin | DECIMAL(12,2) | NOT NULL, additive | |
+
+### fact_shipments
+**Grain: one row per shipment.** FKs per TDD §4.2 (`carrier_key`, `origin_warehouse_key`) plus `ship_date_key` (unavoidable — every fact needs a date) and `destination_warehouse_key`/`destination_customer_key`, mirroring OLTP's own transfer-xor-delivery invariant via a `CHECK` constraint. Non-additive ratios (cost-per-mile, on-time %) not stored — `is_on_time` flag + `shipping_cost`/`distance_miles` are, and ratios compute at query time.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| shipment_key | INT | PK | Surrogate key |
+| source_shipment_id | INT | UNIQUE, NOT NULL | Grain/idempotency key |
+| shipment_number / status_code | VARCHAR | NOT NULL | Degenerate; status_code is a load-time snapshot |
+| carrier_key | INT | FK → dim_carrier | |
+| origin_warehouse_key | INT | FK → dim_warehouse | |
+| destination_warehouse_key / destination_customer_key | INT | FK, exactly one NOT NULL (CHECK) | Mirrors OLTP XOR invariant |
+| ship_date_key / estimated_delivery_date_key / actual_delivery_date_key | INT | FK → dim_date, latter two NULL | |
+| distance_miles | DECIMAL(10,2) | NULL | |
+| shipping_cost | DECIMAL(12,2) | NULL | |
+| is_on_time | TINYINT(1) | NULL, additive flag | NULL until delivered |
+| transit_days | INT | NULL | |
+
+### fact_inventory_snapshot
+**Grain: exactly one row per product, per warehouse, per snapshot date** — not per zone, not per position, not per transaction (ADR-003 periodic snapshot fact; rolls OLTP's zone-level `inventory_positions` up to the warehouse level for the day). Grain key `(product_key, warehouse_key, snapshot_date_key)` UNIQUE. Sparsified — only active (product, warehouse) pairs get a row on a given day (Phase 5 concern). Non-additive/derived measures (days_of_supply, overstock value, capacity_utilization) not stored — no business-rule definition exists in frozen scope for them.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| inventory_snapshot_key | INT | PK | Surrogate key |
+| snapshot_date_key | INT | FK → dim_date | |
+| product_key | INT | FK → dim_product | |
+| warehouse_key | INT | FK → dim_warehouse | |
+| *(grain)* | | UNIQUE(product_key, warehouse_key, snapshot_date_key) | Grain/idempotency key |
+| quantity_on_hand / quantity_reserved / quantity_available | INT | NOT NULL, additive | |
+| inventory_value | DECIMAL(12,2) | NOT NULL, additive | `quantity_on_hand × dim_product.current_unit_cost` at load time |
+| is_stockout | TINYINT(1) | NOT NULL, additive flag | `quantity_on_hand = 0` |
+
+### fact_procurement
+**Grain: one row per purchase-order line — the purchase-order event** (what was ordered, from whom, at what cost; exists as soon as the line does, regardless of receipt status). See `fact_supplier_delivery` below for the explicit distinction. FKs per TDD §4.2 (`supplier_key`, `product_key`) plus `warehouse_key` (addition, `purchase_orders.warehouse_id`, the receiving DC — needed for warehouse-level procurement spend).
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| po_line_key | INT | PK | Surrogate key |
+| source_po_line_id | INT | UNIQUE, NOT NULL | Grain/idempotency key |
+| po_number / po_line_number / po_status_code | VARCHAR/INT | NOT NULL | Degenerate; status is a load-time snapshot |
+| supplier_key | INT | FK → dim_supplier | SCD2-resolved as of order_date_key |
+| product_key | INT | FK → dim_product | |
+| warehouse_key | INT | FK → dim_warehouse | Addition beyond TDD's literal ER diagram; receiving DC |
+| order_date_key / expected_delivery_date_key | INT | FK → dim_date, latter NULL | |
+| ordered_quantity | INT | NOT NULL | |
+| unit_cost | DECIMAL(12,2) | NOT NULL | |
+| extended_cost | DECIMAL(12,2) | NOT NULL, additive | Procurement spend |
+| received_quantity / quality_rejected_quantity | INT | NOT NULL | |
+
+### fact_supplier_delivery
+**Grain: one row per delivery event — the receipt/delivery event** (what actually arrived, when, in what condition). Sourced from the same OLTP table as `fact_procurement` (`purchase_order_lines` — there is no separate delivery-event table), but only gets a row once a line has actually been received (`delivery_date_key` is `NOT NULL` — a delivery event without a date isn't an event). See ADR-013. Dimension links are TDD-silent and designed here from real columns.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| delivery_key | INT | PK | Surrogate key |
+| source_po_line_id | INT | UNIQUE, NOT NULL | Grain/idempotency key; same source row as fact_procurement |
+| po_number / po_line_number | VARCHAR/INT | NOT NULL | Degenerate |
+| supplier_key | INT | FK → dim_supplier | SCD2-resolved as of delivery_date_key |
+| product_key | INT | FK → dim_product | |
+| warehouse_key | INT | FK → dim_warehouse | SCD2-resolved as of delivery_date_key; receiving DC |
+| delivery_date_key | INT | FK → dim_date, NOT NULL | |
+| expected_delivery_date_key | INT | FK → dim_date, NOT NULL | Needed for lead-time variance |
+| ordered_quantity / received_quantity / quality_rejected_quantity | INT | NOT NULL | |
+| quality_accepted_quantity | INT | NOT NULL, additive | `received_quantity - quality_rejected_quantity` |
+| is_on_time | TINYINT(1) | NOT NULL, additive flag | `actual_delivery_date <= expected_delivery_date` |
+| lead_time_variance_days | INT | NOT NULL, additive | `actual - expected`, in days |
+
+Composite index `(supplier_key, delivery_date_key)` per TDD §4.3.
+
+### fact_returns
+**Grain: one row per return line.** Dimension links are TDD-silent and designed here: `product_key`/`customer_key` (via `return_lines.order_line_id → order_lines`), `return_date_key`. `reason_code`/`disposition_code` are degenerate text columns, not promoted to new conformed dimensions (the frozen dimension list is exactly 7). `is_quality_related` not stored — classifying "quality-driven" reason codes is an undefined business rule, left to Phase 5/7.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| return_line_key | INT | PK | Surrogate key |
+| source_return_line_id | INT | UNIQUE, NOT NULL | Grain/idempotency key |
+| return_number / order_number | VARCHAR | NOT NULL | Degenerate |
+| reason_code | VARCHAR(20) | NOT NULL | Degenerate, from `return_reasons.code` |
+| disposition_code | VARCHAR(20) | NULL | Degenerate, from `return_dispositions.code`; NULL until inspected (BR-5) |
+| product_key | INT | FK → dim_product | |
+| customer_key | INT | FK → dim_customer | |
+| return_date_key | INT | FK → dim_date | |
+| returned_quantity | INT | NOT NULL | |
+| unit_price / unit_cost | DECIMAL(12,2) | NOT NULL | From the originating order_lines |
+| return_value / return_cost_value | DECIMAL(12,2) | NOT NULL, additive | |
+
+### summary_daily_revenue_by_region
+The one summary table TDD §10 names by example. Physical table (TDD §15), grain `(region, date)` — no separate surrogate key. Empty shell built in Phase 4; Phase 5's ETL populates it from `fact_orders` joined through `dim_customer → dim_region`. The entire Phase 4 summary-table deliverable — no others are built.
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| region_key | INT | PK (composite), FK → dim_region | |
+| date_key | INT | PK (composite), FK → dim_date | |
+| total_orders / total_order_lines | INT | NOT NULL | |
+| total_revenue / total_gross_margin | DECIMAL(12,2) | NOT NULL | |
 
 ---
 
