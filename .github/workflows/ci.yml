@@ -116,7 +116,10 @@ jobs:
     runs-on: ubuntu-latest
     # Phase 4: no Alembic chain for atlas_olap (raw DDL, see
     # etl/warehouse_ddl/README.md) — same containerized MySQL pattern as
-    # the other jobs, but its own dedicated schema.
+    # the other jobs, but its own dedicated schema. Phase 5 Stage A's
+    # tests (etl/tests/) additionally need a real atlas_oltp_test — the
+    # MySQL service's MYSQL_DATABASE only creates one schema, so the
+    # second is created explicitly in a setup step below.
     services:
       mysql:
         image: mysql:8.0
@@ -135,6 +138,7 @@ jobs:
         working-directory: etl
     env:
       TEST_DATABASE_URL_OLAP: mysql+pymysql://root:changeme_root@127.0.0.1:3306/atlas_olap_test
+      TEST_DATABASE_URL_OLTP: mysql+pymysql://root:changeme_root@127.0.0.1:3306/atlas_oltp_test
       PYTHONPATH: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
@@ -145,8 +149,14 @@ jobs:
 
       - name: Install dependencies
         # requirements.txt's first line (-e ../backend) is what makes
-        # app.core.config.settings importable here.
+        # app.core.config.settings and app.models importable here, and
+        # transitively installs backend's own requirements.txt (incl.
+        # alembic — etl/tests/conftest.py runs backend's real migration
+        # chain against atlas_oltp_test).
         run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Create atlas_oltp_test database
+        run: mysql -h 127.0.0.1 -uroot -pchangeme_root -e "CREATE DATABASE IF NOT EXISTS atlas_oltp_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 
       - name: Lint (ruff)
         run: ruff check .

@@ -13,7 +13,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from apply_ddl import apply_all  # noqa: E402
 from teardown_ddl import teardown_all  # noqa: E402
 
-EXPECTED_TABLE_COUNT = 14  # 7 dimensions + 6 facts + 1 summary table
+# 7 dimensions + 6 facts + 1 summary table (Phase 4) + 5 ETL process
+# metadata tables (Phase 5 Stage A: etl_run_log, etl_watermark,
+# etl_extract_staging, dq_quarantine, etl_run_table_metrics — ADR-015).
+# apply_ddl.py applies everything in warehouse_ddl/, so this count is the
+# running total across phases, not Phase 4 alone.
+EXPECTED_TABLE_COUNT = 19
+EXPECTED_DDL_FILE_COUNT = 20
 
 
 def test_ddl_applies_cleanly_and_teardown_is_idempotent(engine):
@@ -21,7 +27,7 @@ def test_ddl_applies_cleanly_and_teardown_is_idempotent(engine):
     teardown_all()  # tearing down an already-empty schema must not error
 
     n_applied = apply_all()
-    assert n_applied == 15  # 15 numbered DDL files
+    assert n_applied == EXPECTED_DDL_FILE_COUNT
 
     with engine.connect() as conn:
         table_count = conn.execute(
