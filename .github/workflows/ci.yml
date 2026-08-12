@@ -111,6 +111,58 @@ jobs:
       - name: Test (pytest)
         run: pytest
 
+  warehouse_ddl:
+    name: Warehouse DDL — lint + test
+    runs-on: ubuntu-latest
+    # Phase 4: no Alembic chain for atlas_olap (raw DDL, see
+    # etl/warehouse_ddl/README.md) — same containerized MySQL pattern as
+    # the other jobs, but its own dedicated schema.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: changeme_root
+          MYSQL_DATABASE: atlas_olap_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -pchangeme_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    defaults:
+      run:
+        working-directory: etl
+    env:
+      TEST_DATABASE_URL_OLAP: mysql+pymysql://root:changeme_root@127.0.0.1:3306/atlas_olap_test
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        # requirements.txt's first line (-e ../backend) is what makes
+        # app.core.config.settings importable here.
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Format check (black)
+        run: black --check .
+
+      - name: DDL apply/teardown/apply smoke test
+        run: |
+          python warehouse_ddl/apply_ddl.py
+          python warehouse_ddl/teardown_ddl.py
+          python warehouse_ddl/apply_ddl.py
+
+      - name: Test (pytest)
+        run: pytest
+
   frontend:
     name: Frontend — lint + format
     runs-on: ubuntu-latest
