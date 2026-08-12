@@ -10,3 +10,8 @@ CREATE DATABASE IF NOT EXISTS atlas_olap CHARACTER SET utf8mb4 COLLATE utf8mb4_0
 -- schema (never atlas_oltp itself), so constraint tests can freely
 -- create/rollback data without touching dev data.
 CREATE DATABASE IF NOT EXISTS atlas_oltp_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+
+-- Phase 4 test suite applies the raw etl/warehouse_ddl/*.sql DDL
+-- (there is no Alembic chain for atlas_olap) against a dedicated schema,
+-- same isolation rationale as atlas_oltp_test above.
+CREATE DATABASE IF NOT EXISTS atlas_olap_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
