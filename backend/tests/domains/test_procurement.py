@@ -124,7 +124,8 @@ def test_full_receipt_within_tolerance_auto_fulfills(db_session, draft_po, wareh
     assert _status_code(db_session, draft_po) == "FULFILLED"
 
 
-# BR-1: a receipt short of the approved tolerance does not auto-advance the PO.
+# BR-1: a receipt short of exact quantity does not auto-advance the PO
+# (PO_RECEIPT_TOLERANCE = 0.00, spec-default — no documented tolerance).
 def test_partial_receipt_outside_tolerance_stays_confirmed(db_session, draft_po, warehouse_zone):
     submit_purchase_order(db_session, draft_po.id)
     confirm_purchase_order(db_session, draft_po.id)
@@ -133,7 +134,7 @@ def test_partial_receipt_outside_tolerance_stays_confirmed(db_session, draft_po,
     receive_purchase_order_line(
         db_session,
         po_line_id=line.id,
-        received_quantity=90,  # 90% — outside the 2% tolerance band
+        received_quantity=90,  # short of the 100 ordered — not exact
         quality_rejected_quantity=0,
         delivery_date=date(2026, 1, 10),
         warehouse_zone_id=warehouse_zone.id,
@@ -199,11 +200,12 @@ def test_mark_fulfilled_within_tolerance_succeeds(db_session, draft_po, warehous
     submit_purchase_order(db_session, draft_po.id)
     confirm_purchase_order(db_session, draft_po.id)
     line = _first_line(db_session, draft_po)
-    # 99 of 100 = 99% received, within the 2% tolerance band (>= 98%).
+    # PO_RECEIPT_TOLERANCE = 0.00 (spec-default, no documented tolerance) means
+    # exact equality: 100 of 100 received.
     receive_purchase_order_line(
         db_session,
         po_line_id=line.id,
-        received_quantity=99,
+        received_quantity=100,
         quality_rejected_quantity=0,
         delivery_date=date(2026, 1, 10),
         warehouse_zone_id=warehouse_zone.id,
@@ -211,7 +213,7 @@ def test_mark_fulfilled_within_tolerance_succeeds(db_session, draft_po, warehous
     )
 
     # The auto-advance in receive_purchase_order_line already covers this case
-    # (99% is within tolerance); assert directly here as the explicit-call path.
+    # (exact receipt); assert directly here as the explicit-call path.
     assert _status_code(db_session, draft_po) == "FULFILLED"
 
 

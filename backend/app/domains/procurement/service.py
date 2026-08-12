@@ -28,11 +28,14 @@ from app.domains.shared.exceptions import (
 from app.domains.shared.lookups import get_code_by_id, get_id_by_code
 from app.models import POStatus, PurchaseOrder, PurchaseOrderLine, Supplier
 
-# BR-1's "approved tolerance" is not a numeric value in any frozen document.
-# 2% under-receipt is a standard procurement shortage allowance, confirmed
-# with the project owner in the Phase 2 review gate (2026-07-24). Change
-# only through the same review process, not by editing this constant ad hoc.
-PO_RECEIPT_TOLERANCE = Decimal("0.02")
+# BR-1's "approved tolerance" is not a numeric value in any frozen
+# document (SRS, TDD, Roadmap, or ADRs) — 0.0 is therefore the spec-default
+# value, not a business assumption: with no documented tolerance, BR-1
+# requires exact receipt equality (received_quantity == ordered_quantity)
+# for a PO to reach FULFILLED. Kept as a named, configurable constant
+# (not a hardcoded ==) so a future non-zero tolerance can be introduced
+# through a documented ADR or SRS/TDD revision, not an ad hoc code edit.
+PO_RECEIPT_TOLERANCE = Decimal("0.00")
 
 _INVENTORY_RECEIPT_TYPE_CODE = "RECEIPT"
 _PO_SOURCE_REFERENCE_TYPE = "purchase_order_line"
@@ -48,8 +51,12 @@ def _lines_within_tolerance(session: Session, purchase_order_id: int) -> bool:
         .scalars()
         .all()
     )
+    # At PO_RECEIPT_TOLERANCE = 0.00 this is exact equality
+    # (received_quantity == ordered_quantity), since an absolute
+    # difference can only be <= 0 when it is exactly 0.
     return all(
-        line.received_quantity >= line.ordered_quantity * (1 - PO_RECEIPT_TOLERANCE)
+        abs(line.received_quantity - line.ordered_quantity)
+        <= line.ordered_quantity * PO_RECEIPT_TOLERANCE
         for line in lines
     )
 
