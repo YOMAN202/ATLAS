@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     # always be pointed at atlas_reporting in any real deployment.
     database_url_olap_reporting: str = ""
 
+    # Decision Support module (Phase 7): the only connection the
+    # forecasting/optimization code uses — read on all of atlas_olap,
+    # write only on its own ds_* tables (docs/phase7-architecture.md §6).
+    # Never database_url_olap (the ETL's role) or database_url_olap_reporting
+    # (atlas_reporting is contractually read-only everywhere, including
+    # to ds_* tables — it must never gain write access to anything).
+    database_url_olap_decision_support: str = ""
+
     # CORS: the dashboard frontend's own origin, nothing else (SEC-5 — a
     # role header is only meaningful coming from a trusted frontend).
     frontend_origin: str = "http://localhost:3000"
@@ -33,6 +41,10 @@ class Settings(BaseSettings):
     @property
     def dashboard_db_url(self) -> str:
         return self.database_url_olap_reporting or self.database_url_olap
+
+    @property
+    def decision_support_db_url(self) -> str:
+        return self.database_url_olap_decision_support or self.database_url_olap
 
 
 settings = Settings()

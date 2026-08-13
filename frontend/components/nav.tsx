@@ -4,7 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useRole } from "@/lib/role-context";
-import { ADMINISTRATOR, ALL_ROLES, EXECUTIVE, OPERATIONS_ANALYST, type AtlasRole } from "@/lib/roles";
+import {
+  ADMINISTRATOR,
+  ALL_ROLES,
+  EXECUTIVE,
+  OPERATIONS_ANALYST,
+  SUPPLY_PLANNER,
+  type AtlasRole,
+} from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 interface NavLink {
@@ -24,6 +31,7 @@ const LINKS: NavLink[] = [
   { href: "/supplier", label: "Supplier", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
   { href: "/operational", label: "Operational", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
   { href: "/data-quality", label: "Data Quality", roles: [OPERATIONS_ANALYST, ADMINISTRATOR] },
+  { href: "/forecast", label: "Planning", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
 ];
 
 export function Nav() {

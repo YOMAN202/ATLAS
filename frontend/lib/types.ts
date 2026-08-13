@@ -215,3 +215,47 @@ export interface QuarantineRow {
   rule_detail: string;
   quarantined_at: string;
 }
+
+// --- Planning (Phase 7 Module A: Demand Forecasting) ---
+
+export interface ActiveModelInfo {
+  model_id: number;
+  model_name: string;
+  parameters: Record<string, number>;
+  weighted_avg_mape: number | null;
+  baseline_mape: number | null;
+}
+
+export interface ForecastSummary {
+  etl_run_id: number;
+  active_model: ActiveModelInfo | null;
+  forecast_horizon_days: number;
+  total_predicted_demand_next_30d: number;
+  forecast_generated_at: string | null;
+  n_sku_warehouse_series: number;
+  n_category_series: number;
+  n_region_series: number;
+}
+
+export interface ForecastRow {
+  grain_type: string;
+  product_key: number | null;
+  warehouse_key: number | null;
+  category: string | null;
+  region_key: number | null;
+  forecast_date: string;
+  predicted_quantity: number;
+  confidence_interval_low: number | null;
+  confidence_interval_high: number | null;
+  model_name: string;
+}
+
+export interface ExperimentRow {
+  model_name: string;
+  series_scope: string;
+  metric_value: number | null;
+  baseline_metric_value: number | null;
+  n_observations: number;
+  test_start_date: string;
+  test_end_date: string;
+}

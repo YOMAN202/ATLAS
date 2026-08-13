@@ -1,7 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import data_quality, executive, inventory, operational, procurement, sales, supplier
+from app.api.v1 import (
+    data_quality,
+    executive,
+    forecast,
+    inventory,
+    operational,
+    procurement,
+    sales,
+    supplier,
+)
 from app.core.config import settings
 
 app = FastAPI(title="ATLAS API", version="0.1.0")
@@ -24,6 +33,7 @@ app.include_router(procurement.router)
 app.include_router(supplier.router)
 app.include_router(operational.router)
 app.include_router(data_quality.router)
+app.include_router(forecast.router)
 
 
 @app.get("/health")

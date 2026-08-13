@@ -13,7 +13,26 @@ import subprocess
 from app.core.config import settings
 from sqlalchemy.engine import make_url
 
+VIEWS_IN_DROP_ORDER = [
+    # Phase 7 Module A feature views (docs/phase7-architecture.md §4) —
+    # dropped before tables since DROP VIEW/DROP TABLE are different
+    # statements; order relative to tables doesn't matter under
+    # FOREIGN_KEY_CHECKS=0, listed first for clarity only.
+    "v_daily_demand",
+    "v_daily_demand_by_category",
+    "v_daily_demand_by_region",
+]
+
 TABLES_IN_DROP_ORDER = [
+    # Phase 7 decision-support tables (docs/phase7-architecture.md §5) —
+    # ds_demand_forecast FKs to ds_model_registry, etl_run_log, and
+    # dim_product/dim_warehouse/dim_region; ds_experiment_run FKs to
+    # ds_model_registry. Order doesn't strictly matter under
+    # FOREIGN_KEY_CHECKS=0 below, but follows the same reverse-
+    # dependency convention as the rest of this list.
+    "ds_demand_forecast",
+    "ds_experiment_run",
+    "ds_model_registry",
     # ETL process metadata (Phase 5) — staging/quarantine/metrics FK to
     # etl_run_log, so they must go before it; etl_watermark has no FKs.
     "etl_run_table_metrics",
@@ -61,6 +80,8 @@ def teardown_all(url: str | None = None) -> int:
 
     sql = (
         "SET FOREIGN_KEY_CHECKS=0;\n"
+        + "\n".join(f"DROP VIEW IF EXISTS {view};" for view in VIEWS_IN_DROP_ORDER)
+        + "\n"
         + "\n".join(f"DROP TABLE IF EXISTS {table};" for table in TABLES_IN_DROP_ORDER)
         + "\nSET FOREIGN_KEY_CHECKS=1;\n"
     )

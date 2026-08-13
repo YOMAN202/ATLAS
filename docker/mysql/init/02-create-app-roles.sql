@@ -23,7 +23,22 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON atlas_olap.* TO 'atlas_etl'@'%';
 -- The dashboard API's only role: read-only on atlas_olap, nothing else.
 -- Structurally cannot write to either schema, and cannot even read
 -- atlas_oltp — a dashboard endpoint has no legitimate reason to.
+-- Its schema-wide SELECT already covers Phase 7's new ds_* tables/views
+-- without any additional grant here — nothing to change for Phase 7.
 CREATE USER IF NOT EXISTS 'atlas_reporting'@'%' IDENTIFIED BY 'changeme_reporting';
 GRANT SELECT ON atlas_olap.* TO 'atlas_reporting'@'%';
+
+-- Phase 7 (docs/phase7-architecture.md §6): the decision-support
+-- module's only role. Reads the whole warehouse (it needs every fact/
+-- dim to compute anything) but can only write the specific ds_* tables
+-- it owns — enumerated per-table, since MySQL has no prefix-wildcard
+-- GRANT. Never gets write access to a fact/dim table, ever; extending
+-- this role to a new ds_* table means adding one more GRANT line here,
+-- not widening the schema-level grant.
+CREATE USER IF NOT EXISTS 'atlas_decision_support'@'%' IDENTIFIED BY 'changeme_decision_support';
+GRANT SELECT ON atlas_olap.* TO 'atlas_decision_support'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON atlas_olap.ds_model_registry TO 'atlas_decision_support'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON atlas_olap.ds_experiment_run TO 'atlas_decision_support'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON atlas_olap.ds_demand_forecast TO 'atlas_decision_support'@'%';
 
 FLUSH PRIVILEGES;

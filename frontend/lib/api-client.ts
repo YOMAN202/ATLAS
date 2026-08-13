@@ -2,6 +2,9 @@ import type { AtlasRole } from "./roles";
 import type {
   DataQualitySummary,
   ExecutiveSummary,
+  ExperimentRow,
+  ForecastRow,
+  ForecastSummary,
   InventoryRow,
   InventorySummary,
   OperationalSummary,
@@ -117,5 +120,22 @@ export const api = {
       role: AtlasRole,
       params?: PageFilter & { etl_run_id?: number; source_table?: string; rule_violated?: string }
     ) => apiGet<PageEnvelope<QuarantineRow>>("/api/v1/dashboards/data-quality/quarantine", role, params),
+  },
+  planning: {
+    summary: (role: AtlasRole) => apiGet<ForecastSummary>("/api/v1/dashboards/planning/forecast/summary", role),
+    detail: (
+      role: AtlasRole,
+      params?: PageFilter & {
+        grain_type?: "sku_warehouse" | "category" | "region";
+        product_key?: number;
+        warehouse_key?: number;
+        category?: string;
+        region_key?: number;
+        date_from?: string;
+        date_to?: string;
+      }
+    ) => apiGet<PageEnvelope<ForecastRow>>("/api/v1/dashboards/planning/forecast/detail", role, params),
+    experiments: (role: AtlasRole) =>
+      apiGet<ExperimentRow[]>("/api/v1/dashboards/planning/forecast/experiments", role),
   },
 };
