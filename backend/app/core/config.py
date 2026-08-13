@@ -18,5 +18,21 @@ class Settings(BaseSettings):
     database_url_oltp: str = ""
     database_url_olap: str = ""
 
+    # Dashboard API (Phase 6): read-only against atlas_olap via the
+    # atlas_reporting role (SEC-3) — deliberately never database_url_olap
+    # (that connection string is the ETL's read/write role). Falls back to
+    # database_url_olap only if unset, so local dev without the role
+    # provisioned yet doesn't hard-fail — but the dashboard API should
+    # always be pointed at atlas_reporting in any real deployment.
+    database_url_olap_reporting: str = ""
+
+    # CORS: the dashboard frontend's own origin, nothing else (SEC-5 — a
+    # role header is only meaningful coming from a trusted frontend).
+    frontend_origin: str = "http://localhost:3000"
+
+    @property
+    def dashboard_db_url(self) -> str:
+        return self.database_url_olap_reporting or self.database_url_olap
+
 
 settings = Settings()

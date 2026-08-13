@@ -39,6 +39,10 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      # Read-only: backend/tests/api/ builds the OLAP test schema the same
+      # way etl/tests/ does, so dashboard-endpoint tests run against a
+      # real (if minimal, hand-seeded) warehouse rather than mocks.
+      - ./etl/warehouse_ddl:/etl/warehouse_ddl:ro
 
   simulation:
     build:

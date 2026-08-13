@@ -13,7 +13,12 @@
   "dependencies": {
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "echarts": "^5.5.1",
+    "@tanstack/react-table": "^8.20.5",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.5",
+    "class-variance-authority": "^0.7.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
