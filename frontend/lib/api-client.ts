@@ -1,5 +1,6 @@
 import type { AtlasRole } from "./roles";
 import type {
+  CalibrationResult,
   DataQualitySummary,
   ExecutiveSummary,
   ExperimentRow,
@@ -14,6 +15,8 @@ import type {
   ProcurementSummary,
   QuarantineRow,
   SalesSummary,
+  ServiceLevelRow,
+  ServiceLevelSummary,
   ShipmentRow,
   SupplierDeliveryRow,
   SupplierRiskRow,
@@ -149,6 +152,21 @@ export const api = {
     ) =>
       apiGet<PageEnvelope<SupplierRiskRow>>(
         "/api/v1/dashboards/planning/supplier-risk/detail",
+        role,
+        params
+      ),
+  },
+  serviceLevel: {
+    summary: (role: AtlasRole) =>
+      apiGet<ServiceLevelSummary>("/api/v1/dashboards/planning/service-level/summary", role),
+    calibration: (role: AtlasRole) =>
+      apiGet<CalibrationResult[]>("/api/v1/dashboards/planning/service-level/calibration", role),
+    detail: (
+      role: AtlasRole,
+      params?: PageFilter & { min_stockout?: number; min_backorder?: number; min_delay?: number }
+    ) =>
+      apiGet<PageEnvelope<ServiceLevelRow>>(
+        "/api/v1/dashboards/planning/service-level/detail",
         role,
         params
       ),

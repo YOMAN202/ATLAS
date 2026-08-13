@@ -296,3 +296,52 @@ export interface SupplierRiskRow {
   n_deliveries: number;
   triggering_metrics: string[];
 }
+
+// --- Planning (Phase 7 Module D: Service-Level Prediction) ---
+
+export interface ServiceLevelSummary {
+  etl_run_id: number;
+  model_id: number | null;
+  model_name: string | null;
+  source_forecast_model_id: number | null;
+  source_supplier_model_id: number | null;
+  generated_at: string | null;
+  n_predictions: number;
+  n_with_delay_prediction: number;
+  avg_stockout_probability: number | null;
+  avg_backorder_probability: number | null;
+  avg_fulfillment_delay_probability: number | null;
+  n_high_stockout_risk: number;
+}
+
+export interface CalibrationBucketRow {
+  bucket_index: number;
+  predicted_probability_mean: number;
+  actual_outcome_rate: number;
+  n_observations: number;
+}
+
+export interface CalibrationResult {
+  prediction_type: string;
+  brier_score: number;
+  baseline_brier_score: number;
+  n_observations: number;
+  test_start_date: string;
+  test_end_date: string;
+  buckets: CalibrationBucketRow[];
+}
+
+export interface ServiceLevelRow {
+  product_key: number;
+  warehouse_key: number;
+  stockout_probability: number;
+  stockout_confidence: string;
+  stockout_contributing_factors: Record<string, unknown>;
+  backorder_probability: number;
+  backorder_confidence: string;
+  backorder_contributing_factors: Record<string, unknown>;
+  fulfillment_delay_probability: number | null;
+  fulfillment_delay_confidence: string | null;
+  fulfillment_delay_contributing_factors: Record<string, unknown> | null;
+  primary_supplier_key: number | null;
+}

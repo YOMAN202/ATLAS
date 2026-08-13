@@ -16,20 +16,24 @@ from teardown_ddl import teardown_all  # noqa: E402
 # 7 dimensions + 6 facts + 1 summary table (Phase 4) + 5 ETL process
 # metadata tables (Phase 5 Stage A: etl_run_log, etl_watermark,
 # etl_extract_staging, dq_quarantine, etl_run_table_metrics — ADR-015)
-# + 4 Phase 7 decision-support tables (Module A: ds_model_registry,
-# ds_experiment_run, ds_demand_forecast; Module C: ds_supplier_risk_score
-# — docs/phase7-architecture.md §5, docs/phase7-module-c-completion.md;
-# the 6 feature views across those same DDL passes are VIEWs, not BASE
-# TABLEs, so they don't count here).
+# + 6 Phase 7 decision-support tables (Module A: ds_model_registry,
+# ds_experiment_run, ds_demand_forecast; Module C: ds_supplier_risk_score;
+# Module D: ds_service_level_prediction, ds_calibration_bucket —
+# docs/phase7-architecture.md §5, docs/phase7-module-c-completion.md,
+# docs/phase7-module-d-completion.md; the 6 feature views across the
+# Module A/C DDL passes are VIEWs, not BASE TABLEs, so they don't count
+# here — Module D deliberately uses parameterized SQL instead of static
+# views, since its "as of cutoff" walk-forward logic needs a bind
+# parameter a view can't take, so it adds 0 new views).
 # apply_ddl.py applies everything in warehouse_ddl/, so this count is the
-# running total across phases, not Phase 4 alone. File count (27) exceeds
-# table count (23) by 4, all pre-existing-pattern files that add no new
+# running total across phases, not Phase 4 alone. File count (29) exceeds
+# table count (25) by 4, all pre-existing-pattern files that add no new
 # BASE TABLE: 30_composite_indexes.sql (ALTER, indexes only, Phase 4),
 # 45_etl_run_table_metrics_stage_timing.sql (ALTER, Phase 5),
 # 53_ds_feature_views.sql (3 VIEWs, Module A), and
 # 55_ds_supplier_feature_views.sql (3 VIEWs, Module C).
-EXPECTED_TABLE_COUNT = 23
-EXPECTED_DDL_FILE_COUNT = 27
+EXPECTED_TABLE_COUNT = 25
+EXPECTED_DDL_FILE_COUNT = 29
 
 
 def test_ddl_applies_cleanly_and_teardown_is_idempotent(engine):

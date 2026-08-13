@@ -32,9 +32,14 @@ TABLES_IN_DROP_ORDER = [
     # ds_demand_forecast FKs to ds_model_registry, etl_run_log, and
     # dim_product/dim_warehouse/dim_region; ds_experiment_run FKs to
     # ds_model_registry; ds_supplier_risk_score FKs to dim_supplier,
-    # ds_model_registry, etl_run_log. Order doesn't strictly matter under
-    # FOREIGN_KEY_CHECKS=0 below, but follows the same reverse-
-    # dependency convention as the rest of this list.
+    # ds_model_registry, etl_run_log; ds_service_level_prediction FKs to
+    # dim_product/dim_warehouse/dim_supplier and ds_model_registry (three
+    # times: model_id, source_forecast_model_id, source_supplier_model_id);
+    # ds_calibration_bucket FKs to ds_model_registry. Order doesn't
+    # strictly matter under FOREIGN_KEY_CHECKS=0 below, but follows the
+    # same reverse-dependency convention as the rest of this list.
+    "ds_calibration_bucket",
+    "ds_service_level_prediction",
     "ds_supplier_risk_score",
     "ds_demand_forecast",
     "ds_experiment_run",

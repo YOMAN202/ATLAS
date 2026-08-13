@@ -9,6 +9,7 @@ from app.api.v1 import (
     operational,
     procurement,
     sales,
+    service_level,
     supplier,
     supplier_risk,
 )
@@ -36,6 +37,7 @@ app.include_router(operational.router)
 app.include_router(data_quality.router)
 app.include_router(forecast.router)
 app.include_router(supplier_risk.router)
+app.include_router(service_level.router)
 
 
 @app.get("/health")
