@@ -69,6 +69,26 @@ _OLAP_ETL_TABLES_TRUNCATE_ORDER = [
     "etl_run_log",
 ]
 
+# Stage B warehouse tables (dim_date excluded — generated once, never
+# written by ETL). FK order doesn't actually matter here since the
+# truncate block below runs with FOREIGN_KEY_CHECKS=0, but facts-then-
+# dims reads naturally.
+_OLAP_WAREHOUSE_TABLES_TRUNCATE_ORDER = [
+    "summary_daily_revenue_by_region",
+    "fact_inventory_snapshot",
+    "fact_returns",
+    "fact_supplier_delivery",
+    "fact_procurement",
+    "fact_shipments",
+    "fact_orders",
+    "dim_warehouse",
+    "dim_supplier",
+    "dim_customer",
+    "dim_carrier",
+    "dim_product",
+    "dim_region",
+]
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _apply_schemas():
@@ -115,7 +135,7 @@ def _reset_between_tests(oltp_engine, olap_engine):
         with olap_engine.connect() as conn:
             with conn.begin():
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
-                for table in _OLAP_ETL_TABLES_TRUNCATE_ORDER:
+                for table in _OLAP_ETL_TABLES_TRUNCATE_ORDER + _OLAP_WAREHOUSE_TABLES_TRUNCATE_ORDER:
                     conn.execute(text(f"TRUNCATE TABLE {table}"))
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 
