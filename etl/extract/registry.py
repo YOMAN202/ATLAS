@@ -178,6 +178,39 @@ REGISTRY: tuple[TableSpec, ...] = (
         ),
         range_checks=(RangeCheck("returned_quantity", "returned_quantity must be > 0", _positive),),
     ),
+    # inventory_positions/inventory_transactions: fact_inventory_snapshot's
+    # only source (ADR-020) — not anticipated by Stage A's original 13-table
+    # scope (built before Stage B's fact-by-fact needs were worked out in
+    # detail), added here as a necessary registry extension, not a Stage A
+    # optimization. Runs through the identical extract/validate/stage
+    # machinery as every other table.
+    TableSpec(
+        name="inventory_positions",
+        required_columns=(
+            "product_id",
+            "warehouse_id",
+            "warehouse_zone_id",
+            "quantity_on_hand",
+            "quantity_reserved",
+        ),
+        foreign_keys=(
+            ForeignKeyCheck("product_id", "products"),
+            ForeignKeyCheck("warehouse_id", "warehouses"),
+            ForeignKeyCheck("warehouse_zone_id", "warehouse_zones"),
+        ),
+        range_checks=(
+            RangeCheck("quantity_on_hand", "quantity_on_hand must be >= 0", _non_negative),
+            RangeCheck("quantity_reserved", "quantity_reserved must be >= 0", _non_negative),
+        ),
+    ),
+    TableSpec(
+        name="inventory_transactions",
+        required_columns=("inventory_position_id", "transaction_type_id", "quantity_delta", "occurred_at"),
+        foreign_keys=(
+            ForeignKeyCheck("inventory_position_id", "inventory_positions"),
+            ForeignKeyCheck("transaction_type_id", "inventory_transaction_types"),
+        ),
+    ),
 )
 
 REGISTRY_BY_NAME: dict[str, TableSpec] = {spec.name: spec for spec in REGISTRY}
