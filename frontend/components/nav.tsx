@@ -32,6 +32,7 @@ const LINKS: NavLink[] = [
   { href: "/operational", label: "Operational", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
   { href: "/data-quality", label: "Data Quality", roles: [OPERATIONS_ANALYST, ADMINISTRATOR] },
   { href: "/forecast", label: "Planning", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
+  { href: "/supplier-risk", label: "Supplier Risk", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
 ];
 
 export function Nav() {

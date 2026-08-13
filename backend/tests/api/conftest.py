@@ -27,6 +27,7 @@ TEST_DATABASE_URL_OLAP = os.environ.get(
 os.environ["TEST_DATABASE_URL_OLAP"] = TEST_DATABASE_URL_OLAP
 
 _TABLES_TO_RESET = [
+    "ds_supplier_risk_score",
     "ds_demand_forecast",
     "ds_experiment_run",
     "ds_model_registry",

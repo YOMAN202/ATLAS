@@ -40,5 +40,6 @@ GRANT SELECT ON atlas_olap.* TO 'atlas_decision_support'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON atlas_olap.ds_model_registry TO 'atlas_decision_support'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON atlas_olap.ds_experiment_run TO 'atlas_decision_support'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON atlas_olap.ds_demand_forecast TO 'atlas_decision_support'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON atlas_olap.ds_supplier_risk_score TO 'atlas_decision_support'@'%';
 
 FLUSH PRIVILEGES;

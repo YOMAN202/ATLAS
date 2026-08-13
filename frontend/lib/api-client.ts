@@ -16,6 +16,8 @@ import type {
   SalesSummary,
   ShipmentRow,
   SupplierDeliveryRow,
+  SupplierRiskRow,
+  SupplierRiskSummary,
   SupplierSummary,
 } from "./types";
 
@@ -137,5 +139,18 @@ export const api = {
     ) => apiGet<PageEnvelope<ForecastRow>>("/api/v1/dashboards/planning/forecast/detail", role, params),
     experiments: (role: AtlasRole) =>
       apiGet<ExperimentRow[]>("/api/v1/dashboards/planning/forecast/experiments", role),
+  },
+  supplierRisk: {
+    summary: (role: AtlasRole) =>
+      apiGet<SupplierRiskSummary>("/api/v1/dashboards/planning/supplier-risk/summary", role),
+    detail: (
+      role: AtlasRole,
+      params?: PageFilter & { risk_classification?: "Low" | "Medium" | "High" }
+    ) =>
+      apiGet<PageEnvelope<SupplierRiskRow>>(
+        "/api/v1/dashboards/planning/supplier-risk/detail",
+        role,
+        params
+      ),
   },
 };

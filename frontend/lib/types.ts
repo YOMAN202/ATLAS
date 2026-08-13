@@ -259,3 +259,40 @@ export interface ExperimentRow {
   test_start_date: string;
   test_end_date: string;
 }
+
+// --- Planning (Phase 7 Module C: Supplier Intelligence) ---
+
+export interface ClassificationBreakdown {
+  low: number;
+  medium: number;
+  high: number;
+}
+
+export interface SupplierRiskSummary {
+  etl_run_id: number;
+  model_id: number | null;
+  model_name: string | null;
+  scoring_weights: Record<string, number> | null;
+  generated_at: string | null;
+  n_suppliers: number;
+  avg_risk_score: number | null;
+  classification_breakdown: ClassificationBreakdown;
+}
+
+export interface SupplierRiskRow {
+  supplier_key: number;
+  risk_score: number;
+  risk_classification: "Low" | "Medium" | "High";
+  on_time_rate: number;
+  quality_rejection_rate: number;
+  fill_rate: number;
+  lead_time_stddev_days: number;
+  on_time_rate_trend_delta: number;
+  trend_direction: "improving" | "stable" | "degrading";
+  total_spend: number;
+  share_of_total_spend: number;
+  distinct_products_supplied: number;
+  distinct_warehouses_served: number;
+  n_deliveries: number;
+  triggering_metrics: string[];
+}

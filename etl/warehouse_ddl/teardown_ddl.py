@@ -21,15 +21,21 @@ VIEWS_IN_DROP_ORDER = [
     "v_daily_demand",
     "v_daily_demand_by_category",
     "v_daily_demand_by_region",
+    # Phase 7 Module C feature views (docs/phase7-module-c-completion.md)
+    "v_supplier_delivery_stats",
+    "v_supplier_trend",
+    "v_supplier_utilization",
 ]
 
 TABLES_IN_DROP_ORDER = [
     # Phase 7 decision-support tables (docs/phase7-architecture.md §5) —
     # ds_demand_forecast FKs to ds_model_registry, etl_run_log, and
     # dim_product/dim_warehouse/dim_region; ds_experiment_run FKs to
-    # ds_model_registry. Order doesn't strictly matter under
+    # ds_model_registry; ds_supplier_risk_score FKs to dim_supplier,
+    # ds_model_registry, etl_run_log. Order doesn't strictly matter under
     # FOREIGN_KEY_CHECKS=0 below, but follows the same reverse-
     # dependency convention as the rest of this list.
+    "ds_supplier_risk_score",
     "ds_demand_forecast",
     "ds_experiment_run",
     "ds_model_registry",
