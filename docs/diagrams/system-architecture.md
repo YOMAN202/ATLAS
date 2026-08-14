@@ -1,8 +1,16 @@
 # System Architecture Diagram (DOC-4)
 
-**Status:** Initial version, committed in Phase 0. Source of truth for the
-architecture itself is `docs/ATLAS-TDD.md` §2 — this diagram is kept in
-sync with it as components are built; finalized in Phase 10.
+**Status: SUPERSEDED by `docs/architecture-overview.md` §1 (v1.0, 2026-08-14).**
+This Phase 0 draft is kept as historical record — it predates the ETL
+pipeline, the decision-support modules (A–F), and the analytics copilot,
+and still names Power BI, which the platform never actually used (Next.js
+dashboards shipped instead, Phase 6). Do not treat anything below as
+current.
+
+*Original status note, preserved: initial version, committed in Phase 0.
+Source of truth for the architecture itself is `docs/ATLAS-TDD.md` §2 —
+this diagram was meant to be kept in sync with it as components were
+built; that finalization pass is `docs/architecture-overview.md` instead.*
 
 ```mermaid
 flowchart TB
