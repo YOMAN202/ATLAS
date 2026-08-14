@@ -4,7 +4,7 @@
 
 **Status: Gemini is the primary/default copilot LLM provider (ADR-024, `docs/ATLAS-TDD.md` §14).**
 
-This document is deliberately separate from `docs/phase8-analytics-copilot.md` and `docs/phase8-grounding-spec.md`, which stay provider-neutral by design (ADR-023, ADR-024) — the verification-first architecture, the claim schema, and the CI-blocking gate do not know or care which LLM proposed a claim. Everything below is specific to *how* Gemini's API shape differs from the Anthropic tool-use shape the earlier design notes were originally sketched against, and is the record of what actually had to be figured out to wire a real provider in.
+This document is separate from `docs/phase8-analytics-copilot.md` and `docs/phase8-grounding-spec.md`, which stay provider-neutral by design (ADR-023, ADR-024) — the verification-first architecture, the claim schema, and the CI-blocking gate don't know or care which LLM proposed a claim. Everything below is specific to how Gemini's API shape differs from the Anthropic tool-use shape the earlier design notes were originally sketched against, and is a record of what actually had to be figured out to wire a real provider in.
 
 ---
 
@@ -31,7 +31,7 @@ Because of this shape difference, `app/copilot/gemini_agent.py` is a self-contai
 
 `Interaction.steps` is a list that includes every step type (`user_input`, `model_output`, `thought`, `function_call`, `function_result`, ...). Whether a given `interactions.create` response's `.steps` contains **only the steps produced by that call** or the **full accumulated history** of the chained interaction (via `previous_interaction_id`) was not resolved from the SDK's type definitions or from documentation available at implementation time.
 
-`run_agentic_pipeline` handles this defensively rather than assuming either behavior: it tracks a `seen_step_ids: set[str]` across the loop and only acts on a `function_call` step whose `.id` hasn't already been processed. This is correct under both possible server behaviors — if `.steps` is cumulative, already-handled calls are skipped; if it's delta-only, every step is new anyway and the set costs nothing. **This is the top item to confirm during live validation** (§5) — if step accumulation turns out to duplicate `tool_results` or misnumber citation IDs across turns despite the dedup guard, that would show up as a citation-mismatch verification failure, not a crash, and should be visible in the eval output.
+`run_agentic_pipeline` handles this defensively rather than assuming either behavior: it tracks a `seen_step_ids: set[str]` across the loop and only acts on a `function_call` step whose `.id` hasn't already been processed. This is correct under both possible server behaviors — if `.steps` is cumulative, already-handled calls are skipped; if it's delta-only, every step is new anyway and the set costs nothing. This was the top item to confirm during live validation (§5) — if step accumulation had duplicated `tool_results` or misnumbered citation IDs across turns despite the dedup guard, that would show up as a citation-mismatch verification failure rather than a crash.
 
 ## 4. Request-shape validation performed without a live key
 
