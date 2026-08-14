@@ -58,9 +58,9 @@ const detailColumns: ColumnDef<InventoryPolicyRow, unknown>[] = [
 export default function InventoryPolicyDashboardPage() {
   const { role } = useRole();
   const [page, setPage] = useState(1);
-  const [balancing, setBalancing] = useState<
-    "" | "reorder_now" | "adequate" | "excess_inventory"
-  >("");
+  const [balancing, setBalancing] = useState<"" | "reorder_now" | "adequate" | "excess_inventory">(
+    "",
+  );
   const pageSize = 25;
 
   const summary = useApi(() => api.inventoryPolicy.summary(role), [role]);
@@ -72,13 +72,13 @@ export default function InventoryPolicyDashboardPage() {
         page,
         page_size: pageSize,
       }),
-    [role, balancing, page]
+    [role, balancing, page],
   );
 
   const sensitivityChartOption = useMemo<EChartsOption | null>(() => {
     if (sensitivity.status !== "ready" || sensitivity.data.length === 0) return null;
     const scenarios = [...sensitivity.data].sort(
-      (a, b) => a.target_service_level - b.target_service_level
+      (a, b) => a.target_service_level - b.target_service_level,
     );
     return {
       tooltip: { trigger: "axis" },
@@ -128,10 +128,7 @@ export default function InventoryPolicyDashboardPage() {
             {summary.data.source_service_level_model_id ?? "—"}
           </p>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <KpiCard
-              label="Recommendations"
-              value={formatNumber(summary.data.n_recommendations)}
-            />
+            <KpiCard label="Recommendations" value={formatNumber(summary.data.n_recommendations)} />
             <KpiCard
               label="Reorder Now"
               value={formatNumber(summary.data.balancing_breakdown.reorder_now)}

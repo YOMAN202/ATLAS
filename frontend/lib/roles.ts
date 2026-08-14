@@ -10,10 +10,7 @@ export const SUPPLY_PLANNER = "supply_planner" as const;
 export const ADMINISTRATOR = "administrator" as const;
 
 export type AtlasRole =
-  | typeof EXECUTIVE
-  | typeof OPERATIONS_ANALYST
-  | typeof SUPPLY_PLANNER
-  | typeof ADMINISTRATOR;
+  typeof EXECUTIVE | typeof OPERATIONS_ANALYST | typeof SUPPLY_PLANNER | typeof ADMINISTRATOR;
 
 export const ALL_ROLES: { value: AtlasRole; label: string }[] = [
   { value: EXECUTIVE, label: "Executive" },

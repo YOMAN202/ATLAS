@@ -18,7 +18,11 @@ const shipmentColumns: ColumnDef<ShipmentRow, unknown>[] = [
   { accessorKey: "carrier_key", header: "Carrier Key" },
   { accessorKey: "origin_warehouse_key", header: "Origin Warehouse Key" },
   { accessorKey: "distance_miles", header: "Miles" },
-  { accessorKey: "shipping_cost", header: "Cost", cell: (c) => formatCurrency(c.getValue() as number | null) },
+  {
+    accessorKey: "shipping_cost",
+    header: "Cost",
+    cell: (c) => formatCurrency(c.getValue() as number | null),
+  },
   { accessorKey: "transit_days", header: "Transit Days" },
 ];
 
@@ -39,7 +43,10 @@ export default function OperationalDashboardPage() {
   const pageSize = 25;
 
   const summary = useApi(() => api.operational.summary(role), [role]);
-  const detail = useApi(() => api.operational.detail(role, { page, page_size: pageSize }), [role, page]);
+  const detail = useApi(
+    () => api.operational.detail(role, { page, page_size: pageSize }),
+    [role, page],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,8 +63,14 @@ export default function OperationalDashboardPage() {
               value={formatPercent(summary.data.on_time_delivery_rate)}
               note={summary.data.on_time_delivery_rate_note}
             />
-            <KpiCard label="Avg Cost / Mile" value={formatCurrency(summary.data.average_cost_per_mile)} />
-            <KpiCard label="Avg Transit Days" value={summary.data.average_transit_days?.toFixed(1) ?? "—"} />
+            <KpiCard
+              label="Avg Cost / Mile"
+              value={formatCurrency(summary.data.average_cost_per_mile)}
+            />
+            <KpiCard
+              label="Avg Transit Days"
+              value={summary.data.average_transit_days?.toFixed(1) ?? "—"}
+            />
           </div>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <KpiCard label="Pick Accuracy" value="—" note={summary.data.pick_accuracy_note} />
@@ -65,7 +78,9 @@ export default function OperationalDashboardPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-sm font-medium text-slate-500">Warehouse Capacity (latest snapshot)</h2>
+            <h2 className="mb-2 text-sm font-medium text-slate-500">
+              Warehouse Capacity (latest snapshot)
+            </h2>
             <DataTable
               columns={capacityColumns}
               data={summary.data.warehouse_capacity}

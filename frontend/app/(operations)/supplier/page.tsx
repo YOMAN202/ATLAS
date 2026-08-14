@@ -18,7 +18,11 @@ const columns: ColumnDef<SupplierDeliveryRow, unknown>[] = [
   { accessorKey: "product_key", header: "Product Key" },
   { accessorKey: "received_quantity", header: "Received" },
   { accessorKey: "quality_rejected_quantity", header: "Rejected" },
-  { accessorKey: "is_on_time", header: "On Time", cell: (c) => ((c.getValue() as boolean) ? "Yes" : "No") },
+  {
+    accessorKey: "is_on_time",
+    header: "On Time",
+    cell: (c) => ((c.getValue() as boolean) ? "Yes" : "No"),
+  },
   { accessorKey: "lead_time_variance_days", header: "Lead Time Variance (days)" },
 ];
 
@@ -28,7 +32,10 @@ export default function SupplierDashboardPage() {
   const pageSize = 25;
 
   const summary = useApi(() => api.supplier.summary(role), [role]);
-  const detail = useApi(() => api.supplier.detail(role, { page, page_size: pageSize }), [role, page]);
+  const detail = useApi(
+    () => api.supplier.detail(role, { page, page_size: pageSize }),
+    [role, page],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -40,14 +47,25 @@ export default function SupplierDashboardPage() {
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <KpiCard label="Deliveries" value={formatNumber(summary.data.total_deliveries)} />
-            <KpiCard label="On-Time Delivery Rate" value={formatPercent(summary.data.on_time_delivery_rate)} />
+            <KpiCard
+              label="On-Time Delivery Rate"
+              value={formatPercent(summary.data.on_time_delivery_rate)}
+            />
             <KpiCard
               label="Avg Lead Time Variance"
               value={summary.data.average_lead_time_variance_days?.toFixed(1) ?? "—"}
             />
-            <KpiCard label="Quality Rejection Rate" value={formatPercent(summary.data.quality_rejection_rate)} />
+            <KpiCard
+              label="Quality Rejection Rate"
+              value={formatPercent(summary.data.quality_rejection_rate)}
+            />
           </div>
-          <KpiCard label="Risk Score" value="—" note={summary.data.risk_score_note} className="md:w-1/3" />
+          <KpiCard
+            label="Risk Score"
+            value="—"
+            note={summary.data.risk_score_note}
+            className="md:w-1/3"
+          />
         </>
       )}
 

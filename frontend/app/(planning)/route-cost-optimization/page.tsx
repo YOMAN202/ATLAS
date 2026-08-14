@@ -59,7 +59,7 @@ export default function RouteCostOptimizationDashboardPage() {
         page,
         page_size: pageSize,
       }),
-    [role, recommendationType, page]
+    [role, recommendationType, page],
   );
 
   const warehouseChartOption = useMemo<EChartsOption | null>(() => {
@@ -80,20 +80,22 @@ export default function RouteCostOptimizationDashboardPage() {
           name: "Right-Sizing",
           type: "bar",
           stack: "savings",
-          data: rows.map((r) =>
-            r.total_estimated_savings *
-            (r.n_right_sizing_recommendations /
-              Math.max(1, r.n_right_sizing_recommendations + r.n_consolidation_recommendations))
+          data: rows.map(
+            (r) =>
+              r.total_estimated_savings *
+              (r.n_right_sizing_recommendations /
+                Math.max(1, r.n_right_sizing_recommendations + r.n_consolidation_recommendations)),
           ),
         },
         {
           name: "Consolidation",
           type: "bar",
           stack: "savings",
-          data: rows.map((r) =>
-            r.total_estimated_savings *
-            (r.n_consolidation_recommendations /
-              Math.max(1, r.n_right_sizing_recommendations + r.n_consolidation_recommendations))
+          data: rows.map(
+            (r) =>
+              r.total_estimated_savings *
+              (r.n_consolidation_recommendations /
+                Math.max(1, r.n_right_sizing_recommendations + r.n_consolidation_recommendations)),
           ),
         },
       ],
@@ -104,9 +106,9 @@ export default function RouteCostOptimizationDashboardPage() {
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Planning — Route &amp; Cost Optimization</h1>
       <p className="text-xs text-slate-400">
-        Deterministic vehicle right-sizing and shipment-consolidation heuristics over real
-        carrier and shipment data — no external optimization engine. Right-sizing has provable
-        zero service-level impact (transit time does not vary by vehicle type in this dataset).
+        Deterministic vehicle right-sizing and shipment-consolidation heuristics over real carrier
+        and shipment data — no external optimization engine. Right-sizing has provable zero
+        service-level impact (transit time does not vary by vehicle type in this dataset).
       </p>
 
       {summary.status === "loading" && <DashboardLoading />}

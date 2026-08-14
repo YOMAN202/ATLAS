@@ -24,7 +24,9 @@ from etl.transform.surrogate_keys import resolve_scd2_as_of, resolve_type1
 _SCD2_EPOCH = date(2000, 1, 1)
 
 
-def _supplier_staged(source_id=1, updated_at="2021-01-05T12:00:00", payment_terms_days=30, **overrides):
+def _supplier_staged(
+    source_id=1, updated_at="2021-01-05T12:00:00", payment_terms_days=30, **overrides
+):
     row = {
         "source_id": source_id,
         "supplier_code": f"SUP-{source_id}",
@@ -53,15 +55,24 @@ def test_scd2_first_version_uses_epoch_sentinel_not_source_updated_at(olap_engin
     to it makes it unresolvable against any earlier fact business date.
     See ADR-016's addendum."""
 
-    candidates = build_scd2_supplier_candidates([_supplier_staged(updated_at="2026-08-08T20:12:30")])
+    candidates = build_scd2_supplier_candidates(
+        [_supplier_staged(updated_at="2026-08-08T20:12:30")]
+    )
 
     with olap_engine.connect() as conn:
         with conn.begin():
             counts = upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", ("payment_terms_days", "default_lead_time_days"), candidates
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                ("payment_terms_days", "default_lead_time_days"),
+                candidates,
             )
         row = conn.execute(
-            text("SELECT effective_from, effective_to, is_current FROM dim_supplier WHERE supplier_id = 1")
+            text(
+                "SELECT effective_from, effective_to, is_current "
+                "FROM dim_supplier WHERE supplier_id = 1"
+            )
         ).one()
 
     assert counts == LoadCounts(1, 0, 0)
@@ -76,13 +87,23 @@ def test_scd2_genuine_tracked_change_versions_and_resolves_by_business_date(olap
     with olap_engine.connect() as conn:
         with conn.begin():
             upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", tracked,
-                build_scd2_supplier_candidates([_supplier_staged(payment_terms_days=30, updated_at="2021-01-05T00:00:00")]),
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                tracked,
+                build_scd2_supplier_candidates(
+                    [_supplier_staged(payment_terms_days=30, updated_at="2021-01-05T00:00:00")]
+                ),
             )
         with conn.begin():
             counts = upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", tracked,
-                build_scd2_supplier_candidates([_supplier_staged(payment_terms_days=45, updated_at="2021-06-01T00:00:00")]),
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                tracked,
+                build_scd2_supplier_candidates(
+                    [_supplier_staged(payment_terms_days=45, updated_at="2021-06-01T00:00:00")]
+                ),
             )
         versions = conn.execute(
             text(
@@ -106,7 +127,9 @@ def test_scd2_genuine_tracked_change_versions_and_resolves_by_business_date(olap
         # ADR-021: resolution is as-of the fact's own business date, not
         # unconditionally the current version.
         resolved = resolve_scd2_as_of(
-            conn, "dim_supplier", "supplier_id",
+            conn,
+            "dim_supplier",
+            "supplier_id",
             [(101, 1, date(2021, 3, 1)), (102, 1, date(2021, 6, 1)), (103, 1, date(2021, 12, 1))],
         )
 
@@ -121,20 +144,35 @@ def test_scd2_same_day_change_coalesces_into_one_version(olap_engine):
     with olap_engine.connect() as conn:
         with conn.begin():
             upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", tracked,
-                build_scd2_supplier_candidates([_supplier_staged(payment_terms_days=30, updated_at="2021-06-01T08:00:00")]),
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                tracked,
+                build_scd2_supplier_candidates(
+                    [_supplier_staged(payment_terms_days=30, updated_at="2021-06-01T08:00:00")]
+                ),
             )
         with conn.begin():
             counts_v2 = upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", tracked,
-                build_scd2_supplier_candidates([_supplier_staged(payment_terms_days=45, updated_at="2021-06-01T09:00:00")]),
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                tracked,
+                build_scd2_supplier_candidates(
+                    [_supplier_staged(payment_terms_days=45, updated_at="2021-06-01T09:00:00")]
+                ),
             )
         with conn.begin():
             # A second real change on the SAME calendar day (e.g. Stage B
             # ran twice in one day and both caught a genuine change).
             counts_v3 = upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", tracked,
-                build_scd2_supplier_candidates([_supplier_staged(payment_terms_days=60, updated_at="2021-06-01T17:00:00")]),
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                tracked,
+                build_scd2_supplier_candidates(
+                    [_supplier_staged(payment_terms_days=60, updated_at="2021-06-01T17:00:00")]
+                ),
             )
         rows = conn.execute(
             text(
@@ -158,18 +196,33 @@ def test_scd2_non_tracked_change_updates_in_place_no_new_version(olap_engine):
     with olap_engine.connect() as conn:
         with conn.begin():
             upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", tracked,
-                build_scd2_supplier_candidates([_supplier_staged(updated_at="2021-01-05T00:00:00")]),
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                tracked,
+                build_scd2_supplier_candidates(
+                    [_supplier_staged(updated_at="2021-01-05T00:00:00")]
+                ),
             )
         with conn.begin():
             counts = upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", tracked,
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                tracked,
                 build_scd2_supplier_candidates(
-                    [_supplier_staged(updated_at="2021-06-01T00:00:00", contact_email="new@example.com")]
+                    [
+                        _supplier_staged(
+                            updated_at="2021-06-01T00:00:00", contact_email="new@example.com"
+                        )
+                    ]
                 ),
             )
         rows = conn.execute(
-            text("SELECT contact_email, effective_from, is_current FROM dim_supplier WHERE supplier_id = 1")
+            text(
+                "SELECT contact_email, effective_from, is_current "
+                "FROM dim_supplier WHERE supplier_id = 1"
+            )
         ).all()
 
     assert counts == LoadCounts(0, 1, 0)
@@ -181,7 +234,9 @@ def test_scd2_non_tracked_change_updates_in_place_no_new_version(olap_engine):
 
 def test_scd2_unchanged_candidate_is_a_true_noop(olap_engine):
     tracked = ("payment_terms_days", "default_lead_time_days")
-    candidates = build_scd2_supplier_candidates([_supplier_staged(updated_at="2021-01-05T00:00:00")])
+    candidates = build_scd2_supplier_candidates(
+        [_supplier_staged(updated_at="2021-01-05T00:00:00")]
+    )
 
     with olap_engine.connect() as conn:
         with conn.begin():
@@ -196,7 +251,12 @@ def test_scd2_unchanged_candidate_is_a_true_noop(olap_engine):
 
 def test_resolve_type1_maps_natural_id_to_surrogate_key(olap_engine):
     staged = [
-        {"source_id": 1, "code": "NA", "name": "North America", "updated_at": "2021-01-01T00:00:00"},
+        {
+            "source_id": 1,
+            "code": "NA",
+            "name": "North America",
+            "updated_at": "2021-01-01T00:00:00",
+        },
         {"source_id": 2, "code": "EU", "name": "Europe", "updated_at": "2021-01-01T00:00:00"},
     ]
 
@@ -214,8 +274,19 @@ def test_reconcile_fact_flags_row_count_mismatch(olap_engine):
     with olap_engine.connect() as conn:
         with conn.begin():
             upsert_type1_dimension(
-                conn, "dim_region", "region_id",
-                build_dim_region_rows([{"source_id": 1, "code": "NA", "name": "NA", "updated_at": "2021-01-01T00:00:00"}]),
+                conn,
+                "dim_region",
+                "region_id",
+                build_dim_region_rows(
+                    [
+                        {
+                            "source_id": 1,
+                            "code": "NA",
+                            "name": "NA",
+                            "updated_at": "2021-01-01T00:00:00",
+                        }
+                    ]
+                ),
             )
         matching = reconcile_fact(conn, "dim_region", ("region_id",), expected_count=1)
         mismatched = reconcile_fact(conn, "dim_region", ("region_id",), expected_count=99)
@@ -243,13 +314,23 @@ def test_reconcile_fact_detects_grain_violation_via_group_by(olap_engine):
     with olap_engine.connect() as conn:
         with conn.begin():
             upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", tracked,
-                build_scd2_supplier_candidates([_supplier_staged(payment_terms_days=30, updated_at="2021-01-05T00:00:00")]),
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                tracked,
+                build_scd2_supplier_candidates(
+                    [_supplier_staged(payment_terms_days=30, updated_at="2021-01-05T00:00:00")]
+                ),
             )
         with conn.begin():
             upsert_scd2_dimension(
-                conn, "dim_supplier", "supplier_id", tracked,
-                build_scd2_supplier_candidates([_supplier_staged(payment_terms_days=45, updated_at="2021-06-01T00:00:00")]),
+                conn,
+                "dim_supplier",
+                "supplier_id",
+                tracked,
+                build_scd2_supplier_candidates(
+                    [_supplier_staged(payment_terms_days=45, updated_at="2021-06-01T00:00:00")]
+                ),
             )
         result = reconcile_fact(conn, "dim_supplier", ("supplier_id",), expected_count=2)
 
@@ -258,18 +339,28 @@ def test_reconcile_fact_detects_grain_violation_via_group_by(olap_engine):
 
 
 def test_idempotent_rerun_of_scd2_and_type1_loads_produces_no_new_rows(olap_engine):
-    region_staged = [{"source_id": 1, "code": "NA", "name": "NA", "updated_at": "2021-01-01T00:00:00"}]
-    supplier_candidates = build_scd2_supplier_candidates([_supplier_staged(updated_at="2021-01-05T00:00:00")])
+    region_staged = [
+        {"source_id": 1, "code": "NA", "name": "NA", "updated_at": "2021-01-01T00:00:00"}
+    ]
+    supplier_candidates = build_scd2_supplier_candidates(
+        [_supplier_staged(updated_at="2021-01-05T00:00:00")]
+    )
     tracked = ("payment_terms_days", "default_lead_time_days")
 
     with olap_engine.connect() as conn:
         with conn.begin():
-            upsert_type1_dimension(conn, "dim_region", "region_id", build_dim_region_rows(region_staged))
+            upsert_type1_dimension(
+                conn, "dim_region", "region_id", build_dim_region_rows(region_staged)
+            )
             upsert_scd2_dimension(conn, "dim_supplier", "supplier_id", tracked, supplier_candidates)
 
         with conn.begin():
-            region_counts = upsert_type1_dimension(conn, "dim_region", "region_id", build_dim_region_rows(region_staged))
-            supplier_counts = upsert_scd2_dimension(conn, "dim_supplier", "supplier_id", tracked, supplier_candidates)
+            region_counts = upsert_type1_dimension(
+                conn, "dim_region", "region_id", build_dim_region_rows(region_staged)
+            )
+            supplier_counts = upsert_scd2_dimension(
+                conn, "dim_supplier", "supplier_id", tracked, supplier_candidates
+            )
 
         region_rows = conn.execute(text("SELECT COUNT(*) FROM dim_region")).scalar_one()
         supplier_rows = conn.execute(text("SELECT COUNT(*) FROM dim_supplier")).scalar_one()

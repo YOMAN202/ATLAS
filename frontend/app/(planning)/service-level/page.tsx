@@ -56,7 +56,7 @@ export default function ServiceLevelDashboardPage() {
   const calibration = useApi(() => api.serviceLevel.calibration(role), [role]);
   const detail = useApi(
     () => api.serviceLevel.detail(role, { min_stockout: minStockout, page, page_size: pageSize }),
-    [role, minStockout, page]
+    [role, minStockout, page],
   );
 
   const activeCalibration = useMemo(() => {
@@ -76,7 +76,11 @@ export default function ServiceLevelDashboardPage() {
         name: "Bucket (low to high predicted risk)",
         data: buckets.map((b) => `${b.bucket_index + 1}`),
       },
-      yAxis: { type: "value", name: "Rate", axisLabel: { formatter: (v: number) => `${(v * 100).toFixed(0)}%` } },
+      yAxis: {
+        type: "value",
+        name: "Rate",
+        axisLabel: { formatter: (v: number) => `${(v * 100).toFixed(0)}%` },
+      },
       series: [
         {
           name: "Predicted",

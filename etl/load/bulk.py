@@ -26,9 +26,7 @@ def bulk_upsert(olap_conn: Connection, table: str, rows: list[dict]) -> None:
             "(" + ", ".join(f":r{row_idx}_{c}" for c in columns) + ")"
             for row_idx in range(len(chunk))
         )
-        params = {
-            f"r{row_idx}_{c}": row[c] for row_idx, row in enumerate(chunk) for c in columns
-        }
+        params = {f"r{row_idx}_{c}": row[c] for row_idx, row in enumerate(chunk) for c in columns}
         stmt = text(
             f"INSERT INTO {table} ({col_list}) VALUES {values_clause} "
             f"ON DUPLICATE KEY UPDATE {update_clause}"

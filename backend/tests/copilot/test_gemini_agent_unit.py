@@ -17,7 +17,12 @@ from app.core.config import settings
 
 def test_claim_from_dict_parses_fact_claim():
     claim = _claim_from_dict(
-        {"claim_type": "fact", "metric_path": "summary.avg_risk_score", "value": 42.7, "citation_id": "c1"}
+        {
+            "claim_type": "fact",
+            "metric_path": "summary.avg_risk_score",
+            "value": 42.7,
+            "citation_id": "c1",
+        }
     )
     assert claim == FactClaim(metric_path="summary.avg_risk_score", value=42.7, citation_id="c1")
 
@@ -85,7 +90,9 @@ def test_claim_from_dict_missing_claim_type_returns_none():
 
 def test_execute_tool_call_unknown_tool_raises_tool_error():
     with pytest.raises(ToolError, match="unknown_tool"):
-        _execute_tool_call("not_a_real_tool", {}, http_client=None, role="administrator", citation_id="c1")
+        _execute_tool_call(
+            "not_a_real_tool", {}, http_client=None, role="administrator", citation_id="c1"
+        )
 
 
 def test_gemini_client_requires_api_key(monkeypatch):

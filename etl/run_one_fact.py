@@ -10,7 +10,7 @@ import sys
 import time
 
 from etl.audit.logging_config import configure_logging
-from etl.audit.run_log import complete_run, start_run
+from etl.audit.run_log import start_run
 from etl.db import olap_engine, oltp_engine
 from etl.pipeline import _STAGE_B_DIMENSIONS, _STAGE_B_FACTS, _STAGE_B_SUMMARY
 

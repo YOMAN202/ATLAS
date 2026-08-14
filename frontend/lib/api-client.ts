@@ -39,7 +39,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8
 export class ApiError extends Error {
   constructor(
     public status: number,
-    public detail: string
+    public detail: string,
   ) {
     super(detail);
     this.name = "ApiError";
@@ -118,52 +118,78 @@ export const api = {
       apiGet<ExecutiveSummary>("/api/v1/dashboards/executive", role, params),
   },
   sales: {
-    summary: (role: AtlasRole, params?: DateRangeFilter & { product_key?: number; customer_key?: number }) =>
-      apiGet<SalesSummary>("/api/v1/dashboards/sales", role, params),
-    detail: (role: AtlasRole, params?: DateRangeFilter & PageFilter & { product_key?: number; customer_key?: number }) =>
-      apiGet<PageEnvelope<OrderLineRow>>("/api/v1/dashboards/sales/detail", role, params),
-  },
-  inventory: {
-    summary: (role: AtlasRole, params?: DateRangeFilter & { product_key?: number; warehouse_key?: number }) =>
-      apiGet<InventorySummary>("/api/v1/dashboards/inventory", role, params),
+    summary: (
+      role: AtlasRole,
+      params?: DateRangeFilter & { product_key?: number; customer_key?: number },
+    ) => apiGet<SalesSummary>("/api/v1/dashboards/sales", role, params),
     detail: (
       role: AtlasRole,
-      params?: DateRangeFilter & PageFilter & { product_key?: number; warehouse_key?: number }
+      params?: DateRangeFilter & PageFilter & { product_key?: number; customer_key?: number },
+    ) => apiGet<PageEnvelope<OrderLineRow>>("/api/v1/dashboards/sales/detail", role, params),
+  },
+  inventory: {
+    summary: (
+      role: AtlasRole,
+      params?: DateRangeFilter & { product_key?: number; warehouse_key?: number },
+    ) => apiGet<InventorySummary>("/api/v1/dashboards/inventory", role, params),
+    detail: (
+      role: AtlasRole,
+      params?: DateRangeFilter & PageFilter & { product_key?: number; warehouse_key?: number },
     ) => apiGet<PageEnvelope<InventoryRow>>("/api/v1/dashboards/inventory/detail", role, params),
   },
   procurement: {
     summary: (
       role: AtlasRole,
-      params?: DateRangeFilter & { supplier_key?: number; product_key?: number; warehouse_key?: number }
+      params?: DateRangeFilter & {
+        supplier_key?: number;
+        product_key?: number;
+        warehouse_key?: number;
+      },
     ) => apiGet<ProcurementSummary>("/api/v1/dashboards/procurement", role, params),
     detail: (
       role: AtlasRole,
-      params?: DateRangeFilter & PageFilter & { supplier_key?: number; product_key?: number; warehouse_key?: number }
-    ) => apiGet<PageEnvelope<ProcurementRow>>("/api/v1/dashboards/procurement/detail", role, params),
+      params?: DateRangeFilter &
+        PageFilter & { supplier_key?: number; product_key?: number; warehouse_key?: number },
+    ) =>
+      apiGet<PageEnvelope<ProcurementRow>>("/api/v1/dashboards/procurement/detail", role, params),
   },
   supplier: {
-    summary: (role: AtlasRole, params?: DateRangeFilter & { supplier_key?: number; product_key?: number }) =>
-      apiGet<SupplierSummary>("/api/v1/dashboards/supplier", role, params),
-    detail: (role: AtlasRole, params?: DateRangeFilter & PageFilter & { supplier_key?: number; product_key?: number }) =>
+    summary: (
+      role: AtlasRole,
+      params?: DateRangeFilter & { supplier_key?: number; product_key?: number },
+    ) => apiGet<SupplierSummary>("/api/v1/dashboards/supplier", role, params),
+    detail: (
+      role: AtlasRole,
+      params?: DateRangeFilter & PageFilter & { supplier_key?: number; product_key?: number },
+    ) =>
       apiGet<PageEnvelope<SupplierDeliveryRow>>("/api/v1/dashboards/supplier/detail", role, params),
   },
   operational: {
-    summary: (role: AtlasRole, params?: DateRangeFilter & { carrier_key?: number; warehouse_key?: number }) =>
-      apiGet<OperationalSummary>("/api/v1/dashboards/operational", role, params),
+    summary: (
+      role: AtlasRole,
+      params?: DateRangeFilter & { carrier_key?: number; warehouse_key?: number },
+    ) => apiGet<OperationalSummary>("/api/v1/dashboards/operational", role, params),
     detail: (
       role: AtlasRole,
-      params?: DateRangeFilter & PageFilter & { carrier_key?: number; warehouse_key?: number }
+      params?: DateRangeFilter & PageFilter & { carrier_key?: number; warehouse_key?: number },
     ) => apiGet<PageEnvelope<ShipmentRow>>("/api/v1/dashboards/operational/detail", role, params),
   },
   dataQuality: {
-    summary: (role: AtlasRole) => apiGet<DataQualitySummary>("/api/v1/dashboards/data-quality", role),
+    summary: (role: AtlasRole) =>
+      apiGet<DataQualitySummary>("/api/v1/dashboards/data-quality", role),
     quarantine: (
       role: AtlasRole,
-      params?: PageFilter & { etl_run_id?: number; source_table?: string; rule_violated?: string }
-    ) => apiGet<PageEnvelope<QuarantineRow>>("/api/v1/dashboards/data-quality/quarantine", role, params),
+      params?: PageFilter & { etl_run_id?: number; source_table?: string; rule_violated?: string },
+    ) =>
+      apiGet<PageEnvelope<QuarantineRow>>(
+        "/api/v1/dashboards/data-quality/quarantine",
+        role,
+        params,
+      ),
   },
   planning: {
-    summary: (role: AtlasRole) => apiGet<ForecastSummary>("/api/v1/dashboards/planning/forecast/summary", role),
+    summary: (role: AtlasRole) =>
+      apiGet<ForecastSummary>("/api/v1/dashboards/planning/forecast/summary", role),
     detail: (
       role: AtlasRole,
       params?: PageFilter & {
@@ -174,8 +200,13 @@ export const api = {
         region_key?: number;
         date_from?: string;
         date_to?: string;
-      }
-    ) => apiGet<PageEnvelope<ForecastRow>>("/api/v1/dashboards/planning/forecast/detail", role, params),
+      },
+    ) =>
+      apiGet<PageEnvelope<ForecastRow>>(
+        "/api/v1/dashboards/planning/forecast/detail",
+        role,
+        params,
+      ),
     experiments: (role: AtlasRole) =>
       apiGet<ExperimentRow[]>("/api/v1/dashboards/planning/forecast/experiments", role),
   },
@@ -184,12 +215,12 @@ export const api = {
       apiGet<SupplierRiskSummary>("/api/v1/dashboards/planning/supplier-risk/summary", role),
     detail: (
       role: AtlasRole,
-      params?: PageFilter & { risk_classification?: "Low" | "Medium" | "High" }
+      params?: PageFilter & { risk_classification?: "Low" | "Medium" | "High" },
     ) =>
       apiGet<PageEnvelope<SupplierRiskRow>>(
         "/api/v1/dashboards/planning/supplier-risk/detail",
         role,
-        params
+        params,
       ),
   },
   serviceLevel: {
@@ -199,12 +230,12 @@ export const api = {
       apiGet<CalibrationResult[]>("/api/v1/dashboards/planning/service-level/calibration", role),
     detail: (
       role: AtlasRole,
-      params?: PageFilter & { min_stockout?: number; min_backorder?: number; min_delay?: number }
+      params?: PageFilter & { min_stockout?: number; min_backorder?: number; min_delay?: number },
     ) =>
       apiGet<PageEnvelope<ServiceLevelRow>>(
         "/api/v1/dashboards/planning/service-level/detail",
         role,
-        params
+        params,
       ),
   },
   inventoryPolicy: {
@@ -213,18 +244,18 @@ export const api = {
     sensitivity: (role: AtlasRole) =>
       apiGet<SensitivityScenario[]>(
         "/api/v1/dashboards/planning/inventory-policy/sensitivity",
-        role
+        role,
       ),
     detail: (
       role: AtlasRole,
       params?: PageFilter & {
         balancing_recommendation?: "reorder_now" | "adequate" | "excess_inventory";
-      }
+      },
     ) =>
       apiGet<PageEnvelope<InventoryPolicyRow>>(
         "/api/v1/dashboards/planning/inventory-policy/detail",
         role,
-        params
+        params,
       ),
   },
   scenarios: {
@@ -241,24 +272,24 @@ export const api = {
     summary: (role: AtlasRole) =>
       apiGet<OptimizationSummary>(
         "/api/v1/dashboards/planning/route-cost-optimization/summary",
-        role
+        role,
       ),
     warehouseImpact: (role: AtlasRole) =>
       apiGet<WarehouseImpactRow[]>(
         "/api/v1/dashboards/planning/route-cost-optimization/warehouse-impact",
-        role
+        role,
       ),
     detail: (
       role: AtlasRole,
       params?: PageFilter & {
         recommendation_type?: "right_sizing" | "consolidation";
         origin_warehouse_key?: number;
-      }
+      },
     ) =>
       apiGet<PageEnvelope<OptimizationRecommendationRow>>(
         "/api/v1/dashboards/planning/route-cost-optimization/detail",
         role,
-        params
+        params,
       ),
   },
   copilot: {

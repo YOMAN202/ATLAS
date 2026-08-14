@@ -20,7 +20,11 @@ const columns: ColumnDef<ProcurementRow, unknown>[] = [
   { accessorKey: "ordered_quantity", header: "Ordered" },
   { accessorKey: "received_quantity", header: "Received" },
   { accessorKey: "quality_rejected_quantity", header: "Rejected" },
-  { accessorKey: "extended_cost", header: "Cost", cell: (c) => formatCurrency(c.getValue() as number) },
+  {
+    accessorKey: "extended_cost",
+    header: "Cost",
+    cell: (c) => formatCurrency(c.getValue() as number),
+  },
 ];
 
 export default function ProcurementDashboardPage() {
@@ -29,7 +33,10 @@ export default function ProcurementDashboardPage() {
   const pageSize = 25;
 
   const summary = useApi(() => api.procurement.summary(role), [role]);
-  const detail = useApi(() => api.procurement.detail(role, { page, page_size: pageSize }), [role, page]);
+  const detail = useApi(
+    () => api.procurement.detail(role, { page, page_size: pageSize }),
+    [role, page],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -42,7 +49,10 @@ export default function ProcurementDashboardPage() {
           <KpiCard label="PO Lines" value={formatNumber(summary.data.total_po_lines)} />
           <KpiCard label="Total Spend" value={formatCurrency(summary.data.total_spend)} />
           <KpiCard label="Receipt Rate" value={formatPercent(summary.data.receipt_rate)} />
-          <KpiCard label="Quality Rejection Rate" value={formatPercent(summary.data.quality_rejection_rate)} />
+          <KpiCard
+            label="Quality Rejection Rate"
+            value={formatPercent(summary.data.quality_rejection_rate)}
+          />
         </div>
       )}
 

@@ -92,13 +92,17 @@ def upsert_scd2_dimension(
     natural_ids = tuple(c[natural_id_column] for c in candidates)
     placeholder = ",".join(f":id{i}" for i in range(len(natural_ids)))
     params = {f"id{i}": nid for i, nid in enumerate(natural_ids)}
-    current_rows = olap_conn.execute(
-        text(
-            f"SELECT * FROM {table} WHERE {natural_id_column} IN ({placeholder}) "
-            f"AND is_current = 1"
-        ),
-        params,
-    ).mappings().all()
+    current_rows = (
+        olap_conn.execute(
+            text(
+                f"SELECT * FROM {table} WHERE {natural_id_column} IN ({placeholder}) "
+                f"AND is_current = 1"
+            ),
+            params,
+        )
+        .mappings()
+        .all()
+    )
     current_by_natural_id = {row[natural_id_column]: dict(row) for row in current_rows}
 
     inserted = updated = unchanged = 0

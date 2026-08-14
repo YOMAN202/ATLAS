@@ -135,7 +135,9 @@ def _reset_between_tests(oltp_engine, olap_engine):
         with olap_engine.connect() as conn:
             with conn.begin():
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
-                for table in _OLAP_ETL_TABLES_TRUNCATE_ORDER + _OLAP_WAREHOUSE_TABLES_TRUNCATE_ORDER:
+                for table in (
+                    _OLAP_ETL_TABLES_TRUNCATE_ORDER + _OLAP_WAREHOUSE_TABLES_TRUNCATE_ORDER
+                ):
                     conn.execute(text(f"TRUNCATE TABLE {table}"))
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 

@@ -26,9 +26,7 @@ const SCENARIO_TYPE_LABEL: Record<string, string> = {
 function deltaColor(delta: number, higherIsBad: boolean): string {
   if (delta === 0) return "text-slate-500 dark:text-slate-400";
   const isBad = higherIsBad ? delta > 0 : delta < 0;
-  return isBad
-    ? "text-red-600 dark:text-red-400"
-    : "text-emerald-600 dark:text-emerald-400";
+  return isBad ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400";
 }
 
 function formatDelta(delta: number, digits = 4): string {
@@ -43,12 +41,12 @@ export default function ScenarioPlannerPage() {
   const list = useApi(() => api.scenarios.list(role), [role]);
   const compare = useApi(
     () => (selectedIds.length > 0 ? api.scenarios.compare(role, selectedIds) : Promise.resolve([])),
-    [role, selectedIds.join(",")]
+    [role, selectedIds.join(",")],
   );
 
   const toggleSelected = (id: number) => {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 5 ? [...prev, id] : prev
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 5 ? [...prev, id] : prev,
     );
   };
 
@@ -84,8 +82,9 @@ export default function ScenarioPlannerPage() {
       <h1 className="text-xl font-semibold">Planning — Scenario Simulation</h1>
       <p className="text-xs text-slate-400">
         A curated library of precomputed what-if scenarios, each recomputing Modules A/C/D/B&apos;s
-        own frozen formulas over perturbed (never persisted) inputs — see docs/phase7-2-architecture.md.
-        Select up to 5 scenarios below for a side-by-side What-if Comparison.
+        own frozen formulas over perturbed (never persisted) inputs — see
+        docs/phase7-2-architecture.md. Select up to 5 scenarios below for a side-by-side What-if
+        Comparison.
       </p>
 
       {list.status === "loading" && <DashboardLoading />}
@@ -97,22 +96,19 @@ export default function ScenarioPlannerPage() {
             <KpiCard
               label="Widest Investment Swing"
               value={`$${formatNumber(
-                Math.max(...list.data.map((r) => Math.abs(r.investment_delta)))
+                Math.max(...list.data.map((r) => Math.abs(r.investment_delta))),
               )}`}
             />
             <KpiCard
               label="Max Stockout-Risk Delta"
               value={formatDelta(
                 Math.max(...list.data.map((r) => r.stockout_probability_delta)),
-                4
+                4,
               )}
             />
             <KpiCard
               label="Min Service-Level Delta"
-              value={formatDelta(
-                Math.min(...list.data.map((r) => r.service_level_delta)),
-                4
-              )}
+              value={formatDelta(Math.min(...list.data.map((r) => r.service_level_delta)), 4)}
             />
           </div>
 
@@ -132,24 +128,17 @@ export default function ScenarioPlannerPage() {
                     <th className="px-3 py-2 text-left font-medium text-slate-500">Compare</th>
                     <th className="px-3 py-2 text-left font-medium text-slate-500">Type</th>
                     <th className="px-3 py-2 text-left font-medium text-slate-500">Scenario</th>
-                    <th className="px-3 py-2 text-left font-medium text-slate-500">
-                      Stockout Δ
-                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-500">Stockout Δ</th>
                     <th className="px-3 py-2 text-left font-medium text-slate-500">
                       Service Level Δ
                     </th>
-                    <th className="px-3 py-2 text-left font-medium text-slate-500">
-                      Investment Δ
-                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-500">Investment Δ</th>
                     <th className="px-3 py-2 text-left font-medium text-slate-500">Confidence</th>
                   </tr>
                 </thead>
                 <tbody>
                   {list.data.map((row: ScenarioSummary) => (
-                    <tr
-                      key={row.id}
-                      className="border-t border-slate-100 dark:border-slate-800"
-                    >
+                    <tr key={row.id} className="border-t border-slate-100 dark:border-slate-800">
                       <td className="px-3 py-2">
                         <input
                           type="checkbox"
@@ -164,15 +153,18 @@ export default function ScenarioPlannerPage() {
                         <div className="font-medium">{row.scenario_name}</div>
                         <div className="text-xs text-slate-400">{row.description}</div>
                       </td>
-                      <td className={`px-3 py-2 tabular-nums ${deltaColor(row.stockout_probability_delta, true)}`}>
+                      <td
+                        className={`px-3 py-2 tabular-nums ${deltaColor(row.stockout_probability_delta, true)}`}
+                      >
                         {formatDelta(row.stockout_probability_delta)}
                       </td>
-                      <td className={`px-3 py-2 tabular-nums ${deltaColor(row.service_level_delta, false)}`}>
+                      <td
+                        className={`px-3 py-2 tabular-nums ${deltaColor(row.service_level_delta, false)}`}
+                      >
                         {formatDelta(row.service_level_delta)}
                       </td>
                       <td className="px-3 py-2 tabular-nums">
-                        {row.investment_delta >= 0 ? "+" : ""}
-                        ${formatNumber(row.investment_delta)}
+                        {row.investment_delta >= 0 ? "+" : ""}${formatNumber(row.investment_delta)}
                       </td>
                       <td className="px-3 py-2">{row.confidence}</td>
                     </tr>
@@ -242,7 +234,10 @@ export default function ScenarioPlannerPage() {
                   <tr className="border-t border-slate-100 dark:border-slate-800">
                     <td className="px-3 py-2 text-slate-500">Inventory Investment</td>
                     <td className="px-3 py-2">
-                      ${compare.data[0] ? formatNumber(compare.data[0].baseline_inventory_investment) : "—"}
+                      $
+                      {compare.data[0]
+                        ? formatNumber(compare.data[0].baseline_inventory_investment)
+                        : "—"}
                     </td>
                     {compare.data.map((s) => (
                       <td key={s.id} className="px-3 py-2">
@@ -253,7 +248,9 @@ export default function ScenarioPlannerPage() {
                   <tr className="border-t border-slate-100 dark:border-slate-800">
                     <td className="px-3 py-2 text-slate-500">Avg. Service Level</td>
                     <td className="px-3 py-2">
-                      {compare.data[0] ? `${(compare.data[0].baseline_avg_service_level * 100).toFixed(1)}%` : "—"}
+                      {compare.data[0]
+                        ? `${(compare.data[0].baseline_avg_service_level * 100).toFixed(1)}%`
+                        : "—"}
                     </td>
                     {compare.data.map((s) => (
                       <td key={s.id} className="px-3 py-2">
@@ -264,7 +261,9 @@ export default function ScenarioPlannerPage() {
                   <tr className="border-t border-slate-100 dark:border-slate-800">
                     <td className="px-3 py-2 text-slate-500">Procurement Volume</td>
                     <td className="px-3 py-2">
-                      {compare.data[0] ? formatNumber(compare.data[0].baseline_procurement_volume) : "—"}
+                      {compare.data[0]
+                        ? formatNumber(compare.data[0].baseline_procurement_volume)
+                        : "—"}
                     </td>
                     {compare.data.map((s) => (
                       <td key={s.id} className="px-3 py-2">

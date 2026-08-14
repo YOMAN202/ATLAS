@@ -117,7 +117,10 @@ def _shipment(**overrides):
 def test_fact_shipments_is_on_time_true_when_delivered_by_estimate():
     rows, _ = build_fact_shipments_rows(
         [_shipment(estimated_delivery_date="2021-03-05", actual_delivery_date="2021-03-04")],
-        {20: 701}, {30: 801}, {}, {1: "DELIVERED"},
+        {20: 701},
+        {30: 801},
+        {},
+        {1: "DELIVERED"},
     )
     assert rows[0]["is_on_time"] is True
     assert rows[0]["transit_days"] == 3
@@ -126,7 +129,10 @@ def test_fact_shipments_is_on_time_true_when_delivered_by_estimate():
 def test_fact_shipments_is_on_time_false_when_delivered_late():
     rows, _ = build_fact_shipments_rows(
         [_shipment(estimated_delivery_date="2021-03-05", actual_delivery_date="2021-03-08")],
-        {20: 701}, {30: 801}, {}, {1: "DELIVERED"},
+        {20: 701},
+        {30: 801},
+        {},
+        {1: "DELIVERED"},
     )
     assert rows[0]["is_on_time"] is False
 
@@ -134,16 +140,17 @@ def test_fact_shipments_is_on_time_false_when_delivered_late():
 def test_fact_shipments_is_on_time_none_when_not_yet_delivered():
     rows, _ = build_fact_shipments_rows(
         [_shipment(estimated_delivery_date="2021-03-05", actual_delivery_date=None)],
-        {20: 701}, {30: 801}, {}, {1: "DELIVERED"},
+        {20: 701},
+        {30: 801},
+        {},
+        {1: "DELIVERED"},
     )
     assert rows[0]["is_on_time"] is None
     assert rows[0]["transit_days"] is None
 
 
 def test_fact_shipments_quarantines_when_carrier_or_origin_unresolved():
-    rows, quarantine = build_fact_shipments_rows(
-        [_shipment()], {}, {30: 801}, {}, {1: "DELIVERED"}
-    )
+    rows, quarantine = build_fact_shipments_rows([_shipment()], {}, {30: 801}, {}, {1: "DELIVERED"})
     assert rows == []
     assert quarantine[0][1] == "DQ-3"
 
@@ -165,7 +172,12 @@ def _po_line(**overrides):
 
 
 def _po(**overrides):
-    row = {"po_number": "PO-1", "order_date": "2021-02-01", "status_id": 1, "expected_delivery_date": "2021-02-10"}
+    row = {
+        "po_number": "PO-1",
+        "order_date": "2021-02-01",
+        "status_id": 1,
+        "expected_delivery_date": "2021-02-10",
+    }
     row.update(overrides)
     return row
 
@@ -197,8 +209,15 @@ def test_fact_supplier_delivery_skips_lines_not_yet_delivered():
 
 def test_fact_supplier_delivery_computes_on_time_and_variance():
     rows, quarantine = build_fact_supplier_delivery_rows(
-        [_po_line(actual_delivery_date="2021-02-08", received_quantity=95, quality_rejected_quantity=5)],
-        {900: _po(expected_delivery_date="2021-02-10")}, {10: 501}, {1: 401}, {1: 801},
+        [
+            _po_line(
+                actual_delivery_date="2021-02-08", received_quantity=95, quality_rejected_quantity=5
+            )
+        ],
+        {900: _po(expected_delivery_date="2021-02-10")},
+        {10: 501},
+        {1: 401},
+        {1: 801},
     )
     assert quarantine == []
     row = rows[0]

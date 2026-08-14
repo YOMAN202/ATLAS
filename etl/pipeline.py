@@ -174,7 +174,9 @@ def _process_table(
     )
 
 
-def _run_stage_a_tables(oltp_eng, olap_eng, etl_run_id: int, fault_injector: FaultInjector | None) -> None:
+def _run_stage_a_tables(
+    oltp_eng, olap_eng, etl_run_id: int, fault_injector: FaultInjector | None
+) -> None:
     with oltp_eng.connect() as oltp_conn:
         for spec in REGISTRY:
             with olap_eng.connect() as olap_conn:
@@ -255,14 +257,20 @@ def run_full_pipeline(fault_injector: FaultInjector | None = None) -> int:
         _run_stage_a_tables(oltp_eng, olap_eng, etl_run_id, fault_injector)
         logger.info(
             "stage_a_complete",
-            extra={"etl_run_id": etl_run_id, "duration_seconds": round(time.perf_counter() - stage_a_t0, 3)},
+            extra={
+                "etl_run_id": etl_run_id,
+                "duration_seconds": round(time.perf_counter() - stage_a_t0, 3),
+            },
         )
 
         stage_b_t0 = time.perf_counter()
         _run_stage_b_objects(oltp_eng, olap_eng, etl_run_id)
         logger.info(
             "stage_b_complete",
-            extra={"etl_run_id": etl_run_id, "duration_seconds": round(time.perf_counter() - stage_b_t0, 3)},
+            extra={
+                "etl_run_id": etl_run_id,
+                "duration_seconds": round(time.perf_counter() - stage_b_t0, 3),
+            },
         )
         status = "SUCCEEDED"
     finally:

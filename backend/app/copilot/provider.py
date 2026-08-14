@@ -31,7 +31,9 @@ def get_claim_drafting_client() -> ClaimDraftingClient:
     raise ValueError(f"Unknown copilot_llm_provider: {settings.copilot_llm_provider!r}")
 
 
-def run_copilot_pipeline(question: str, role: str, http_client: HttpCaller) -> CopilotResponse | Refusal:
+def run_copilot_pipeline(
+    question: str, role: str, http_client: HttpCaller
+) -> CopilotResponse | Refusal:
     """Live agentic entrypoint for GET /api/v1/copilot/ask
     (settings.copilot_llm_provider). Gemini is the only provider with a
     live agentic implementation in this pass -- Anthropic remains

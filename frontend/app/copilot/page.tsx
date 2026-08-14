@@ -125,7 +125,7 @@ export default function CopilotPage() {
   const [input, setInput] = useState("");
   const [nextId, setNextId] = useState(1);
   const [providerStatus, setProviderStatus] = useState<CopilotStatus | "loading" | "error">(
-    "loading"
+    "loading",
   );
 
   const busy = turns.some((t) => t.status === "loading");
@@ -176,7 +176,7 @@ export default function CopilotPage() {
             ? err.message
             : "Unknown error.";
       setTurns((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, status: "error", errorMessage: message } : t))
+        prev.map((t) => (t.id === id ? { ...t, status: "error", errorMessage: message } : t)),
       );
     }
   }
@@ -229,7 +229,7 @@ export default function CopilotPage() {
               type="submit"
               disabled={busy || !input.trim()}
               className={cn(
-                "rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-slate-100 dark:text-slate-900"
+                "rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-slate-100 dark:text-slate-900",
               )}
             >
               {busy ? "Asking…" : "Ask"}

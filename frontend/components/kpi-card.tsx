@@ -16,7 +16,12 @@ export function KpiCard({ label, value, note, className }: KpiCardProps) {
         <CardTitle>{label}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className={cn("text-2xl font-semibold tabular-nums", unavailable && "text-slate-400 dark:text-slate-600")}>
+        <div
+          className={cn(
+            "text-2xl font-semibold tabular-nums",
+            unavailable && "text-slate-400 dark:text-slate-600",
+          )}
+        >
           {value}
         </div>
         {note && <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{note}</p>}

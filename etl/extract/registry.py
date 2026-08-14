@@ -205,7 +205,12 @@ REGISTRY: tuple[TableSpec, ...] = (
     ),
     TableSpec(
         name="inventory_transactions",
-        required_columns=("inventory_position_id", "transaction_type_id", "quantity_delta", "occurred_at"),
+        required_columns=(
+            "inventory_position_id",
+            "transaction_type_id",
+            "quantity_delta",
+            "occurred_at",
+        ),
         foreign_keys=(
             ForeignKeyCheck("inventory_position_id", "inventory_positions"),
             ForeignKeyCheck("transaction_type_id", "inventory_transaction_types"),

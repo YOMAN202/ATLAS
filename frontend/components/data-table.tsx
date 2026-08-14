@@ -11,7 +11,14 @@ interface DataTableProps<T> {
   onPageChange: (page: number) => void;
 }
 
-export function DataTable<T>({ columns, data, page, pageSize, total, onPageChange }: DataTableProps<T>) {
+export function DataTable<T>({
+  columns,
+  data,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+}: DataTableProps<T>) {
   const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
 
@@ -23,7 +30,10 @@ export function DataTable<T>({ columns, data, page, pageSize, total, onPageChang
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-500 dark:text-slate-400">
+                  <th
+                    key={header.id}
+                    className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-500 dark:text-slate-400"
+                  >
                     {flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
                 ))}

@@ -72,9 +72,13 @@ def _log_object(
 
 
 def _lookup_vehicle_types(oltp_conn: Connection) -> dict[int, dict]:
-    rows = oltp_conn.execute(
-        text("SELECT id, code, name, capacity_units, cost_per_mile FROM vehicle_types")
-    ).mappings().all()
+    rows = (
+        oltp_conn.execute(
+            text("SELECT id, code, name, capacity_units, cost_per_mile FROM vehicle_types")
+        )
+        .mappings()
+        .all()
+    )
     return {row["id"]: dict(row) for row in rows}
 
 
@@ -95,7 +99,9 @@ def process_dim_region(oltp_conn: Connection, olap_conn: Connection, etl_run_id:
     t2 = time.perf_counter()
     result = reconcile_fact(olap_conn, "dim_region", ("region_id",), len(rows))
     t3 = time.perf_counter()
-    _log_object(olap_conn, etl_run_id, "dim_region", len(staged), 0, t1 - t0, t2 - t1, t3 - t2, counts)
+    _log_object(
+        olap_conn, etl_run_id, "dim_region", len(staged), 0, t1 - t0, t2 - t1, t3 - t2, counts
+    )
     assert result.grain_violations == 0, f"dim_region grain violation: {result}"
 
 
@@ -108,7 +114,9 @@ def process_dim_product(oltp_conn: Connection, olap_conn: Connection, etl_run_id
     t2 = time.perf_counter()
     result = reconcile_fact(olap_conn, "dim_product", ("product_id",), len(rows))
     t3 = time.perf_counter()
-    _log_object(olap_conn, etl_run_id, "dim_product", len(staged), 0, t1 - t0, t2 - t1, t3 - t2, counts)
+    _log_object(
+        olap_conn, etl_run_id, "dim_product", len(staged), 0, t1 - t0, t2 - t1, t3 - t2, counts
+    )
     assert result.grain_violations == 0, f"dim_product grain violation: {result}"
 
 
@@ -122,7 +130,9 @@ def process_dim_carrier(oltp_conn: Connection, olap_conn: Connection, etl_run_id
     t2 = time.perf_counter()
     result = reconcile_fact(olap_conn, "dim_carrier", ("carrier_id",), len(rows))
     t3 = time.perf_counter()
-    _log_object(olap_conn, etl_run_id, "dim_carrier", len(staged), 0, t1 - t0, t2 - t1, t3 - t2, counts)
+    _log_object(
+        olap_conn, etl_run_id, "dim_carrier", len(staged), 0, t1 - t0, t2 - t1, t3 - t2, counts
+    )
     assert result.grain_violations == 0, f"dim_carrier grain violation: {result}"
 
 
@@ -136,7 +146,9 @@ def process_dim_customer(oltp_conn: Connection, olap_conn: Connection, etl_run_i
     t2 = time.perf_counter()
     result = reconcile_fact(olap_conn, "dim_customer", ("customer_id",), len(rows))
     t3 = time.perf_counter()
-    _log_object(olap_conn, etl_run_id, "dim_customer", len(staged), 0, t1 - t0, t2 - t1, t3 - t2, counts)
+    _log_object(
+        olap_conn, etl_run_id, "dim_customer", len(staged), 0, t1 - t0, t2 - t1, t3 - t2, counts
+    )
     assert result.grain_violations == 0, f"dim_customer grain violation: {result}"
 
 
@@ -146,10 +158,16 @@ def process_dim_supplier(oltp_conn: Connection, olap_conn: Connection, etl_run_i
     candidates = build_scd2_supplier_candidates(staged)
     t1 = time.perf_counter()
     counts = upsert_scd2_dimension(
-        olap_conn, "dim_supplier", "supplier_id", ("payment_terms_days", "default_lead_time_days"), candidates
+        olap_conn,
+        "dim_supplier",
+        "supplier_id",
+        ("payment_terms_days", "default_lead_time_days"),
+        candidates,
     )
     t2 = time.perf_counter()
-    _log_object(olap_conn, etl_run_id, "dim_supplier", len(staged), 0, t1 - t0, t2 - t1, 0.0, counts)
+    _log_object(
+        olap_conn, etl_run_id, "dim_supplier", len(staged), 0, t1 - t0, t2 - t1, 0.0, counts
+    )
 
 
 def process_dim_warehouse(oltp_conn: Connection, olap_conn: Connection, etl_run_id: int) -> None:
@@ -162,16 +180,25 @@ def process_dim_warehouse(oltp_conn: Connection, olap_conn: Connection, etl_run_
         olap_conn, "dim_warehouse", "warehouse_id", ("total_capacity_units",), candidates
     )
     t2 = time.perf_counter()
-    _log_object(olap_conn, etl_run_id, "dim_warehouse", len(staged), 0, t1 - t0, t2 - t1, 0.0, counts)
+    _log_object(
+        olap_conn, etl_run_id, "dim_warehouse", len(staged), 0, t1 - t0, t2 - t1, 0.0, counts
+    )
 
 
 # --- Facts ---------------------------------------------------------------
 
 
 _ORDER_LINE_FIELDS = (
-    "order_id", "product_id", "fulfillment_warehouse_id", "shipment_id",
-    "allocated_quantity", "unit_price", "unit_cost", "line_number",
-    "ordered_quantity", "backordered_quantity",
+    "order_id",
+    "product_id",
+    "fulfillment_warehouse_id",
+    "shipment_id",
+    "allocated_quantity",
+    "unit_price",
+    "unit_cost",
+    "line_number",
+    "ordered_quantity",
+    "backordered_quantity",
 )
 
 
@@ -200,11 +227,21 @@ def process_fact_orders(oltp_conn: Connection, olap_conn: Connection, etl_run_id
             "backordered_quantity": int(backordered_quantity),
         }
         for source_id, (
-            order_id, product_id, fwid, shipment_id, allocated_quantity, unit_price,
-            unit_cost, line_number, ordered_quantity, backordered_quantity,
+            order_id,
+            product_id,
+            fwid,
+            shipment_id,
+            allocated_quantity,
+            unit_price,
+            unit_cost,
+            line_number,
+            ordered_quantity,
+            backordered_quantity,
         ) in order_line_fields.items()
     ]
-    orders_fields = read_staged_fields(olap_conn, "orders", ("customer_id", "order_date", "order_number"))
+    orders_fields = read_staged_fields(
+        olap_conn, "orders", ("customer_id", "order_date", "order_number")
+    )
     orders_by_id = {
         oid: {"customer_id": int(cust_id), "order_date": order_date, "order_number": order_number}
         for oid, (cust_id, order_date, order_number) in orders_fields.items()
@@ -214,10 +251,16 @@ def process_fact_orders(oltp_conn: Connection, olap_conn: Connection, etl_run_id
 
     product_key_by_id = resolve_type1(olap_conn, "dim_product", "product_id")
     customer_key_by_id = resolve_type1(olap_conn, "dim_customer", "customer_id")
-    warehouse_key_by_id = resolve_type1(olap_conn, "dim_warehouse", "warehouse_id")  # see note below
+    warehouse_key_by_id = resolve_type1(
+        olap_conn, "dim_warehouse", "warehouse_id"
+    )  # see note below
 
     rows, quarantine = build_fact_orders_rows(
-        order_lines, orders_by_id, product_key_by_id, customer_key_by_id, warehouse_key_by_id,
+        order_lines,
+        orders_by_id,
+        product_key_by_id,
+        customer_key_by_id,
+        warehouse_key_by_id,
         shipment_number_by_id,
     )
     t1 = time.perf_counter()
@@ -227,15 +270,31 @@ def process_fact_orders(oltp_conn: Connection, olap_conn: Connection, etl_run_id
     t3 = time.perf_counter()
     _write_quarantine(olap_conn, etl_run_id, "order_lines", quarantine)
     _log_object(
-        olap_conn, etl_run_id, "fact_orders", len(order_lines), len(quarantine), t1 - t0, t2 - t1, t3 - t2, counts
+        olap_conn,
+        etl_run_id,
+        "fact_orders",
+        len(order_lines),
+        len(quarantine),
+        t1 - t0,
+        t2 - t1,
+        t3 - t2,
+        counts,
     )
     assert result.grain_violations == 0, f"fact_orders grain violation: {result}"
 
 
 _SHIPMENT_FIELDS = (
-    "carrier_id", "origin_warehouse_id", "destination_warehouse_id", "destination_customer_id",
-    "ship_date", "estimated_delivery_date", "actual_delivery_date", "shipment_number", "status_id",
-    "distance_miles", "shipping_cost",
+    "carrier_id",
+    "origin_warehouse_id",
+    "destination_warehouse_id",
+    "destination_customer_id",
+    "ship_date",
+    "estimated_delivery_date",
+    "actual_delivery_date",
+    "shipment_number",
+    "status_id",
+    "distance_miles",
+    "shipping_cost",
 )
 
 
@@ -249,8 +308,12 @@ def process_fact_shipments(oltp_conn: Connection, olap_conn: Connection, etl_run
             "source_id": source_id,
             "carrier_id": int(carrier_id),
             "origin_warehouse_id": int(origin_warehouse_id),
-            "destination_warehouse_id": int(dest_warehouse_id) if dest_warehouse_id is not None else None,
-            "destination_customer_id": int(dest_customer_id) if dest_customer_id is not None else None,
+            "destination_warehouse_id": (
+                int(dest_warehouse_id) if dest_warehouse_id is not None else None
+            ),
+            "destination_customer_id": (
+                int(dest_customer_id) if dest_customer_id is not None else None
+            ),
             "ship_date": ship_date,
             "estimated_delivery_date": est_date,
             "actual_delivery_date": actual_date,
@@ -260,8 +323,17 @@ def process_fact_shipments(oltp_conn: Connection, olap_conn: Connection, etl_run
             "shipping_cost": shipping_cost,
         }
         for source_id, (
-            carrier_id, origin_warehouse_id, dest_warehouse_id, dest_customer_id, ship_date, est_date,
-            actual_date, shipment_number, status_id, distance_miles, shipping_cost,
+            carrier_id,
+            origin_warehouse_id,
+            dest_warehouse_id,
+            dest_customer_id,
+            ship_date,
+            est_date,
+            actual_date,
+            shipment_number,
+            status_id,
+            distance_miles,
+            shipping_cost,
         ) in shipment_fields.items()
     ]
     carrier_key_by_id = resolve_type1(olap_conn, "dim_carrier", "carrier_id")
@@ -270,7 +342,11 @@ def process_fact_shipments(oltp_conn: Connection, olap_conn: Connection, etl_run
     shipment_status_code_by_id = _lookup_codes(oltp_conn, "shipment_statuses")
 
     rows, quarantine = build_fact_shipments_rows(
-        shipments, carrier_key_by_id, warehouse_key_by_id, customer_key_by_id, shipment_status_code_by_id
+        shipments,
+        carrier_key_by_id,
+        warehouse_key_by_id,
+        customer_key_by_id,
+        shipment_status_code_by_id,
     )
     t1 = time.perf_counter()
     counts = upsert_fact(olap_conn, "fact_shipments", ("source_shipment_id",), rows)
@@ -279,7 +355,15 @@ def process_fact_shipments(oltp_conn: Connection, olap_conn: Connection, etl_run
     t3 = time.perf_counter()
     _write_quarantine(olap_conn, etl_run_id, "shipments", quarantine)
     _log_object(
-        olap_conn, etl_run_id, "fact_shipments", len(shipments), len(quarantine), t1 - t0, t2 - t1, t3 - t2, counts
+        olap_conn,
+        etl_run_id,
+        "fact_shipments",
+        len(shipments),
+        len(quarantine),
+        t1 - t0,
+        t2 - t1,
+        t3 - t2,
+        counts,
     )
     assert result.grain_violations == 0, f"fact_shipments grain violation: {result}"
 
@@ -310,8 +394,12 @@ def _resolve_supplier_warehouse_for_po_lines(
         supplier_queries.append((line["source_id"], po["supplier_id"], business_date))
         warehouse_queries.append((line["source_id"], po["warehouse_id"], business_date))
 
-    supplier_key_resolver = resolve_scd2_as_of(olap_conn, "dim_supplier", "supplier_id", supplier_queries)
-    warehouse_key_resolver = resolve_scd2_as_of(olap_conn, "dim_warehouse", "warehouse_id", warehouse_queries)
+    supplier_key_resolver = resolve_scd2_as_of(
+        olap_conn, "dim_supplier", "supplier_id", supplier_queries
+    )
+    warehouse_key_resolver = resolve_scd2_as_of(
+        olap_conn, "dim_warehouse", "warehouse_id", warehouse_queries
+    )
     return supplier_key_resolver, warehouse_key_resolver
 
 
@@ -327,7 +415,11 @@ def process_fact_procurement(oltp_conn: Connection, olap_conn: Connection, etl_r
     )
 
     rows, quarantine = build_fact_procurement_rows(
-        po_lines, purchase_orders_by_id, product_key_by_id, supplier_key_resolver, warehouse_key_resolver,
+        po_lines,
+        purchase_orders_by_id,
+        product_key_by_id,
+        supplier_key_resolver,
+        warehouse_key_resolver,
         po_status_code_by_id,
     )
     t1 = time.perf_counter()
@@ -337,12 +429,22 @@ def process_fact_procurement(oltp_conn: Connection, olap_conn: Connection, etl_r
     t3 = time.perf_counter()
     _write_quarantine(olap_conn, etl_run_id, "purchase_order_lines", quarantine)
     _log_object(
-        olap_conn, etl_run_id, "fact_procurement", len(po_lines), len(quarantine), t1 - t0, t2 - t1, t3 - t2, counts
+        olap_conn,
+        etl_run_id,
+        "fact_procurement",
+        len(po_lines),
+        len(quarantine),
+        t1 - t0,
+        t2 - t1,
+        t3 - t2,
+        counts,
     )
     assert result.grain_violations == 0, f"fact_procurement grain violation: {result}"
 
 
-def process_fact_supplier_delivery(oltp_conn: Connection, olap_conn: Connection, etl_run_id: int) -> None:
+def process_fact_supplier_delivery(
+    oltp_conn: Connection, olap_conn: Connection, etl_run_id: int
+) -> None:
     t0 = time.perf_counter()
     po_lines = read_staged(olap_conn, "purchase_order_lines")
     purchase_orders_by_id = read_staged_by_id(olap_conn, "purchase_orders")
@@ -350,11 +452,18 @@ def process_fact_supplier_delivery(oltp_conn: Connection, olap_conn: Connection,
 
     delivered_lines = [line for line in po_lines if line.get("actual_delivery_date")]
     supplier_key_resolver, warehouse_key_resolver = _resolve_supplier_warehouse_for_po_lines(
-        olap_conn, delivered_lines, purchase_orders_by_id, business_date_field="actual_delivery_date"
+        olap_conn,
+        delivered_lines,
+        purchase_orders_by_id,
+        business_date_field="actual_delivery_date",
     )
 
     rows, quarantine = build_fact_supplier_delivery_rows(
-        po_lines, purchase_orders_by_id, product_key_by_id, supplier_key_resolver, warehouse_key_resolver
+        po_lines,
+        purchase_orders_by_id,
+        product_key_by_id,
+        supplier_key_resolver,
+        warehouse_key_resolver,
     )
     t1 = time.perf_counter()
     counts = upsert_fact(olap_conn, "fact_supplier_delivery", ("source_po_line_id",), rows)
@@ -363,8 +472,15 @@ def process_fact_supplier_delivery(oltp_conn: Connection, olap_conn: Connection,
     t3 = time.perf_counter()
     _write_quarantine(olap_conn, etl_run_id, "purchase_order_lines", quarantine)
     _log_object(
-        olap_conn, etl_run_id, "fact_supplier_delivery", len(delivered_lines), len(quarantine),
-        t1 - t0, t2 - t1, t3 - t2, counts,
+        olap_conn,
+        etl_run_id,
+        "fact_supplier_delivery",
+        len(delivered_lines),
+        len(quarantine),
+        t1 - t0,
+        t2 - t1,
+        t3 - t2,
+        counts,
     )
     assert result.grain_violations == 0, f"fact_supplier_delivery grain violation: {result}"
 
@@ -387,8 +503,14 @@ def process_fact_returns(oltp_conn: Connection, olap_conn: Connection, etl_run_i
     disposition_code_by_id = _lookup_codes(oltp_conn, "return_dispositions")
 
     rows, quarantine = build_fact_returns_rows(
-        return_lines, returns_by_id, order_lines_by_id, orders_by_id, product_key_by_id,
-        customer_key_by_id, reason_code_by_id, disposition_code_by_id,
+        return_lines,
+        returns_by_id,
+        order_lines_by_id,
+        orders_by_id,
+        product_key_by_id,
+        customer_key_by_id,
+        reason_code_by_id,
+        disposition_code_by_id,
     )
     t1 = time.perf_counter()
     counts = upsert_fact(olap_conn, "fact_returns", ("source_return_line_id",), rows)
@@ -397,18 +519,26 @@ def process_fact_returns(oltp_conn: Connection, olap_conn: Connection, etl_run_i
     t3 = time.perf_counter()
     _write_quarantine(olap_conn, etl_run_id, "return_lines", quarantine)
     _log_object(
-        olap_conn, etl_run_id, "fact_returns", len(return_lines), len(quarantine), t1 - t0, t2 - t1, t3 - t2, counts
+        olap_conn,
+        etl_run_id,
+        "fact_returns",
+        len(return_lines),
+        len(quarantine),
+        t1 - t0,
+        t2 - t1,
+        t3 - t2,
+        counts,
     )
     assert result.grain_violations == 0, f"fact_returns grain violation: {result}"
 
 
-def process_fact_inventory_snapshot(oltp_conn: Connection, olap_conn: Connection, etl_run_id: int) -> None:
+def process_fact_inventory_snapshot(
+    oltp_conn: Connection, olap_conn: Connection, etl_run_id: int
+) -> None:
     t0 = time.perf_counter()
     product_key_by_id = resolve_type1(olap_conn, "dim_product", "product_id")
     warehouse_key_by_id = resolve_type1(olap_conn, "dim_warehouse", "warehouse_id")
-    product_unit_cost_by_id = oltp_conn.execute(
-        text("SELECT id, unit_cost FROM products")
-    ).all()
+    product_unit_cost_by_id = oltp_conn.execute(text("SELECT id, unit_cost FROM products")).all()
     product_unit_cost_by_id = {r[0]: r[1] for r in product_unit_cost_by_id}
 
     rows, quarantine = build_fact_inventory_snapshot_rows(
@@ -416,19 +546,32 @@ def process_fact_inventory_snapshot(oltp_conn: Connection, olap_conn: Connection
     )
     t1 = time.perf_counter()
     counts = upsert_fact(
-        olap_conn, "fact_inventory_snapshot", ("product_key", "warehouse_key", "snapshot_date_key"), rows
+        olap_conn,
+        "fact_inventory_snapshot",
+        ("product_key", "warehouse_key", "snapshot_date_key"),
+        rows,
     )
     t2 = time.perf_counter()
     result = reconcile_fact(
-        olap_conn, "fact_inventory_snapshot", ("product_key", "warehouse_key", "snapshot_date_key"), len(rows)
+        olap_conn,
+        "fact_inventory_snapshot",
+        ("product_key", "warehouse_key", "snapshot_date_key"),
+        len(rows),
     )
     t3 = time.perf_counter()
     # A rollup fact has no single OLTP source row id per quarantine entry
     # (dq_quarantine.source_id is nullable for exactly this case).
     _write_quarantine(olap_conn, etl_run_id, "fact_inventory_snapshot", quarantine)
     _log_object(
-        olap_conn, etl_run_id, "fact_inventory_snapshot", len(rows), len(quarantine),
-        t1 - t0, t2 - t1, t3 - t2, counts,
+        olap_conn,
+        etl_run_id,
+        "fact_inventory_snapshot",
+        len(rows),
+        len(quarantine),
+        t1 - t0,
+        t2 - t1,
+        t3 - t2,
+        counts,
     )
     assert result.grain_violations == 0, f"fact_inventory_snapshot grain violation: {result}"
 
@@ -441,7 +584,8 @@ def process_summary_daily_revenue_by_region(
     olap_conn.execute(
         text(
             "INSERT INTO summary_daily_revenue_by_region "
-            "(region_key, date_key, total_orders, total_order_lines, total_revenue, total_gross_margin) "
+            "(region_key, date_key, total_orders, total_order_lines, "
+            "total_revenue, total_gross_margin) "
             "SELECT dc.region_key, fo.order_date_key, "
             "       COUNT(DISTINCT fo.order_number), COUNT(*), "
             "       SUM(fo.extended_revenue), SUM(fo.gross_margin) "
@@ -455,13 +599,23 @@ def process_summary_daily_revenue_by_region(
     ).scalar_one()
     t1 = time.perf_counter()
     _log_object(
-        olap_conn, etl_run_id, "summary_daily_revenue_by_region", row_count, 0, 0.0, t1 - t0, 0.0,
+        olap_conn,
+        etl_run_id,
+        "summary_daily_revenue_by_region",
+        row_count,
+        0,
+        0.0,
+        t1 - t0,
+        0.0,
         type("Counts", (), {"inserted": row_count, "updated": 0, "unchanged": 0})(),
     )
 
 
 def _write_quarantine(
-    olap_conn: Connection, etl_run_id: int, source_table: str, quarantine: list[tuple[int, str, str]]
+    olap_conn: Connection,
+    etl_run_id: int,
+    source_table: str,
+    quarantine: list[tuple[int, str, str]],
 ) -> None:
     if not quarantine:
         return

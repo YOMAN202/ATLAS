@@ -27,9 +27,17 @@ const LINKS: NavLink[] = [
   { href: "/dashboard", label: "Executive", roles: [EXECUTIVE, ADMINISTRATOR] },
   { href: "/sales", label: "Sales", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
   { href: "/inventory", label: "Inventory", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
-  { href: "/procurement", label: "Procurement", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
+  {
+    href: "/procurement",
+    label: "Procurement",
+    roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR],
+  },
   { href: "/supplier", label: "Supplier", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
-  { href: "/operational", label: "Operational", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
+  {
+    href: "/operational",
+    label: "Operational",
+    roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR],
+  },
   { href: "/data-quality", label: "Data Quality", roles: [OPERATIONS_ANALYST, ADMINISTRATOR] },
   { href: "/forecast", label: "Planning", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
   { href: "/supplier-risk", label: "Supplier Risk", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
@@ -61,7 +69,8 @@ export function Nav() {
                 href={link.href}
                 className={cn(
                   "rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
-                  pathname === link.href && "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white"
+                  pathname === link.href &&
+                    "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white",
                 )}
               >
                 {link.label}

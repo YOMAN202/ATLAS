@@ -76,11 +76,11 @@ export default function ForecastDashboardPage() {
   const summary = useApi(() => api.planning.summary(role), [role]);
   const detail = useApi(
     () => api.planning.detail(role, { grain_type: grainType, page, page_size: pageSize }),
-    [role, grainType, page]
+    [role, grainType, page],
   );
   const chartData = useApi(
     () => api.planning.detail(role, { grain_type: "region", page: 1, page_size: 200 }),
-    [role]
+    [role],
   );
   const experiments = useApi(() => api.planning.experiments(role), [role]);
 
@@ -157,7 +157,7 @@ export default function ForecastDashboardPage() {
             <KpiCard
               label="Forecast Series"
               value={`${formatNumber(summary.data.n_sku_warehouse_series)} SKU · ${formatNumber(
-                summary.data.n_category_series
+                summary.data.n_category_series,
               )} category · ${formatNumber(summary.data.n_region_series)} region`}
             />
           </div>
@@ -184,7 +184,7 @@ export default function ForecastDashboardPage() {
             columns={experimentColumns}
             data={experiments.data.slice(
               (experimentsPage - 1) * experimentsPageSize,
-              experimentsPage * experimentsPageSize
+              experimentsPage * experimentsPageSize,
             )}
             page={experimentsPage}
             pageSize={experimentsPageSize}

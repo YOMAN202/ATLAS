@@ -87,7 +87,7 @@ export default function SupplierRiskDashboardPage() {
         page,
         page_size: pageSize,
       }),
-    [role, classification, page]
+    [role, classification, page],
   );
 
   const chartOption = useMemo<EChartsOption | null>(() => {
@@ -132,16 +132,11 @@ export default function SupplierRiskDashboardPage() {
                   : "No model has been run yet."
               }
             />
-            <KpiCard
-              label="Suppliers Scored"
-              value={formatNumber(summary.data.n_suppliers)}
-            />
+            <KpiCard label="Suppliers Scored" value={formatNumber(summary.data.n_suppliers)} />
             <KpiCard
               label="Average Risk Score"
               value={
-                summary.data.avg_risk_score !== null
-                  ? summary.data.avg_risk_score.toFixed(1)
-                  : "—"
+                summary.data.avg_risk_score !== null ? summary.data.avg_risk_score.toFixed(1) : "—"
               }
             />
             <KpiCard

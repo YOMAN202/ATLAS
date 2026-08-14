@@ -55,7 +55,9 @@ _RETRIEVAL_TOOLS = [
     {
         "type": "function",
         "name": "get_forecast_summary",
-        "description": "Retrieve Module A's active demand forecast model summary, including weighted MAPE.",
+        "description": (
+            "Retrieve Module A's active demand forecast model summary, " "including weighted MAPE."
+        ),
         "parameters": {"type": "object", "properties": {}},
     },
     {
@@ -70,7 +72,9 @@ _RETRIEVAL_TOOLS = [
             "properties": {
                 "supplier_key": {
                     "type": "integer",
-                    "description": "A specific supplier's surrogate key, if asking about one supplier.",
+                    "description": (
+                        "A specific supplier's surrogate key, if asking about one supplier."
+                    ),
                 },
                 "risk_classification": {
                     "type": "string",
@@ -234,7 +238,9 @@ def _claim_from_dict(d: dict) -> Claim | None:
     claim_type = d.get("claim_type")
     try:
         if claim_type == "fact":
-            return FactClaim(metric_path=d["metric_path"], value=d["value"], citation_id=d["citation_id"])
+            return FactClaim(
+                metric_path=d["metric_path"], value=d["value"], citation_id=d["citation_id"]
+            )
         if claim_type == "comparison":
             return ComparisonClaim(
                 metric_path=d["metric_path"],
@@ -285,7 +291,11 @@ class GeminiClaimDraftingClient(ClaimDraftingClient):
 
     def draft_claims(self, question: str, tool_results: list[ToolResult]) -> list[Claim]:
         retrieved = [
-            {"citation_id": tr.citation.citation_id, "tool_name": tr.tool_name, "payload": tr.payload}
+            {
+                "citation_id": tr.citation.citation_id,
+                "tool_name": tr.tool_name,
+                "payload": tr.payload,
+            }
             for tr in tool_results
         ]
         prompt = (

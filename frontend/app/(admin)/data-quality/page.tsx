@@ -18,7 +18,11 @@ const tableColumns: ColumnDef<TableQualityRow, unknown>[] = [
   { accessorKey: "extracted_count", header: "Extracted" },
   { accessorKey: "quarantined_count", header: "Quarantined" },
   { accessorKey: "rejected_count", header: "Rejected" },
-  { accessorKey: "dq_score", header: "DQ Score", cell: (c) => formatPercent(c.getValue() as number | null) },
+  {
+    accessorKey: "dq_score",
+    header: "DQ Score",
+    cell: (c) => formatPercent(c.getValue() as number | null),
+  },
 ];
 
 const quarantineColumns: ColumnDef<QuarantineRow, unknown>[] = [
@@ -35,7 +39,10 @@ export default function DataQualityDashboardPage() {
   const pageSize = 25;
 
   const summary = useApi(() => api.dataQuality.summary(role), [role]);
-  const quarantine = useApi(() => api.dataQuality.quarantine(role, { page, page_size: pageSize }), [role, page]);
+  const quarantine = useApi(
+    () => api.dataQuality.quarantine(role, { page, page_size: pageSize }),
+    [role, page],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,13 +54,19 @@ export default function DataQualityDashboardPage() {
         <>
           <p className="text-xs text-slate-400">ETL run #{summary.data.etl_run_id}</p>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <KpiCard label="Overall DQ Score" value={formatPercent(summary.data.overall_dq_score)} />
+            <KpiCard
+              label="Overall DQ Score"
+              value={formatPercent(summary.data.overall_dq_score)}
+            />
             <KpiCard label="Quarantine Rate" value={formatPercent(summary.data.quarantine_rate)} />
             <KpiCard
               label="Referential Integrity Failure Rate"
               value={formatPercent(summary.data.referential_integrity_failure_rate)}
             />
-            <KpiCard label="Run Duration" value={`${formatNumber(Math.round(summary.data.duration_seconds))}s`} />
+            <KpiCard
+              label="Run Duration"
+              value={`${formatNumber(Math.round(summary.data.duration_seconds))}s`}
+            />
           </div>
 
           {summary.data.run_trend.length > 0 && (
@@ -79,7 +92,9 @@ export default function DataQualityDashboardPage() {
           )}
 
           <div>
-            <h2 className="mb-2 text-sm font-medium text-slate-500">Per-Table Breakdown (current run)</h2>
+            <h2 className="mb-2 text-sm font-medium text-slate-500">
+              Per-Table Breakdown (current run)
+            </h2>
             <DataTable
               columns={tableColumns}
               data={summary.data.per_table}

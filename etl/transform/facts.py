@@ -33,7 +33,11 @@ def build_fact_orders_rows(
         order = orders_by_id.get(line["order_id"])
         if order is None:
             quarantine.append(
-                (line["source_id"], "DQ-3", f"order_id {line['order_id']} not found in staged orders")
+                (
+                    line["source_id"],
+                    "DQ-3",
+                    f"order_id {line['order_id']} not found in staged orders",
+                )
             )
             continue
 
@@ -109,7 +113,9 @@ def build_fact_shipments_rows(
 
         dest_warehouse_id = shipment.get("destination_warehouse_id")
         dest_customer_id = shipment.get("destination_customer_id")
-        dest_warehouse_key = warehouse_key_by_id.get(dest_warehouse_id) if dest_warehouse_id else None
+        dest_warehouse_key = (
+            warehouse_key_by_id.get(dest_warehouse_id) if dest_warehouse_id else None
+        )
         dest_customer_key = customer_key_by_id.get(dest_customer_id) if dest_customer_id else None
 
         ship_date = parse_date(shipment["ship_date"])
@@ -163,7 +169,11 @@ def build_fact_procurement_rows(
         po = purchase_orders_by_id.get(line["purchase_order_id"])
         if po is None:
             quarantine.append(
-                (line["source_id"], "DQ-3", f"purchase_order_id {line['purchase_order_id']} not found")
+                (
+                    line["source_id"],
+                    "DQ-3",
+                    f"purchase_order_id {line['purchase_order_id']} not found",
+                )
             )
             continue
 
@@ -195,7 +205,9 @@ def build_fact_procurement_rows(
                 "product_key": product_key,
                 "warehouse_key": warehouse_key,
                 "order_date_key": date_key_for(parse_date(po["order_date"])),
-                "expected_delivery_date_key": date_key_for(expected_date) if expected_date else None,
+                "expected_delivery_date_key": (
+                    date_key_for(expected_date) if expected_date else None
+                ),
                 "ordered_quantity": ordered_quantity,
                 "unit_cost": unit_cost,
                 "extended_cost": unit_cost * ordered_quantity,
@@ -232,7 +244,11 @@ def build_fact_supplier_delivery_rows(
         po = purchase_orders_by_id.get(line["purchase_order_id"])
         if po is None:
             quarantine.append(
-                (line["source_id"], "DQ-3", f"purchase_order_id {line['purchase_order_id']} not found")
+                (
+                    line["source_id"],
+                    "DQ-3",
+                    f"purchase_order_id {line['purchase_order_id']} not found",
+                )
             )
             continue
 
@@ -266,7 +282,9 @@ def build_fact_supplier_delivery_rows(
                 "product_key": product_key,
                 "warehouse_key": warehouse_key,
                 "delivery_date_key": date_key_for(delivery_date),
-                "expected_delivery_date_key": date_key_for(expected_date) if expected_date else None,
+                "expected_delivery_date_key": (
+                    date_key_for(expected_date) if expected_date else None
+                ),
                 "ordered_quantity": line["ordered_quantity"],
                 "received_quantity": received,
                 "quality_rejected_quantity": rejected,
@@ -309,9 +327,7 @@ def build_fact_returns_rows(
         product_key = product_key_by_id.get(order_line["product_id"])
         customer_key = customer_key_by_id.get(order["customer_id"])
         if product_key is None or customer_key is None:
-            quarantine.append(
-                (line["source_id"], "DQ-3", "product_key or customer_key unresolved")
-            )
+            quarantine.append((line["source_id"], "DQ-3", "product_key or customer_key unresolved"))
             continue
 
         returned_quantity = line["returned_quantity"]

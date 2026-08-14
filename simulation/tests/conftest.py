@@ -14,7 +14,12 @@ from app.seed.reference_data import seed_reference_data
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-BACKEND_DIR = Path("/backend")
+_CONTAINER_BACKEND_DIR = Path("/backend")
+BACKEND_DIR = (
+    _CONTAINER_BACKEND_DIR
+    if _CONTAINER_BACKEND_DIR.is_dir()
+    else Path(__file__).resolve().parent.parent.parent / "backend"
+)
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL_OLTP",

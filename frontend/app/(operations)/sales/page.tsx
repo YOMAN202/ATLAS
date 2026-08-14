@@ -20,8 +20,16 @@ const columns: ColumnDef<OrderLineRow, unknown>[] = [
   { accessorKey: "ordered_quantity", header: "Ordered" },
   { accessorKey: "allocated_quantity", header: "Allocated" },
   { accessorKey: "backordered_quantity", header: "Backordered" },
-  { accessorKey: "extended_revenue", header: "Revenue", cell: (c) => formatCurrency(c.getValue() as number) },
-  { accessorKey: "gross_margin", header: "Margin", cell: (c) => formatCurrency(c.getValue() as number) },
+  {
+    accessorKey: "extended_revenue",
+    header: "Revenue",
+    cell: (c) => formatCurrency(c.getValue() as number),
+  },
+  {
+    accessorKey: "gross_margin",
+    header: "Margin",
+    cell: (c) => formatCurrency(c.getValue() as number),
+  },
 ];
 
 export default function SalesDashboardPage() {
@@ -43,7 +51,10 @@ export default function SalesDashboardPage() {
           <KpiCard label="Order Lines" value={formatNumber(summary.data.total_order_lines)} />
           <KpiCard label="Distinct Orders" value={formatNumber(summary.data.distinct_orders)} />
           <KpiCard label="Fulfillment Rate" value={formatPercent(summary.data.fulfillment_rate)} />
-          <KpiCard label="Avg Order Value" value={formatCurrency(summary.data.average_order_value)} />
+          <KpiCard
+            label="Avg Order Value"
+            value={formatCurrency(summary.data.average_order_value)}
+          />
         </div>
       )}
 
