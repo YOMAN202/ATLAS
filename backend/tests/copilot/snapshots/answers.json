@@ -1,0 +1,26 @@
+{
+  "supplier_risk_classification": {
+    "question": "What is supplier 9's risk classification?",
+    "answer": "supplier.risk_classification is High.",
+    "claim_count": 1,
+    "source_endpoints": [
+      "/api/v1/dashboards/planning/supplier-risk/detail"
+    ]
+  },
+  "inventory_safety_stock": {
+    "question": "What safety stock does Module B recommend for this SKU/warehouse pair?",
+    "answer": "recommendation.safety_stock is 18.0.",
+    "claim_count": 1,
+    "source_endpoints": [
+      "/api/v1/dashboards/planning/inventory-policy/detail"
+    ]
+  },
+  "scenario_investment_delta": {
+    "question": "How does the 20% demand surge scenario compare to baseline inventory investment?",
+    "answer": "difference of scenarios.0.scenario_inventory_investment and scenarios.0.baseline_inventory_investment is 599623.3700000001.",
+    "claim_count": 1,
+    "source_endpoints": [
+      "/api/v1/dashboards/planning/scenarios/compare"
+    ]
+  }
+}

@@ -38,6 +38,23 @@ class Settings(BaseSettings):
     # role header is only meaningful coming from a trusted frontend).
     frontend_origin: str = "http://localhost:3000"
 
+    # Phase 8 copilot (docs/phase8-analytics-copilot.md): the base URL the
+    # copilot's tool layer calls, over the SAME read-only dashboard API
+    # every frontend request already uses -- no new DB credential, no new
+    # trust boundary (see ADR-023, docs/ATLAS-TDD.md §14). Unset by
+    # default (empty), same as never having configured it; the copilot
+    # tool layer fails loudly, not silently, if a tool is invoked without
+    # one.
+    copilot_api_base_url: str = ""
+
+    # Real claim-drafting LLM credential (ADR-023) -- unset in this
+    # environment. AnthropicClaimDraftingClient raises a clear
+    # configuration error rather than silently falling back to anything
+    # if a tool call reaches it with this unset. Never required for the
+    # CI-blocking verification harness, which runs entirely against
+    # FixtureClaimDraftingClient (ADR-023's rationale).
+    anthropic_api_key: str = ""
+
     @property
     def dashboard_db_url(self) -> str:
         return self.database_url_olap_reporting or self.database_url_olap
