@@ -32,6 +32,12 @@ jobs:
         working-directory: backend
     env:
       TEST_DATABASE_URL_OLTP: mysql+pymysql://root:changeme_root@127.0.0.1:3306/atlas_oltp_test
+      # tests/api/conftest.py (Phase 6 dashboard tests) applies the real
+      # warehouse DDL to its own schema — needs a second database
+      # alongside atlas_oltp_test, and a URL pointed at the runner's
+      # 127.0.0.1 rather than the "mysql" hostname that only resolves
+      # inside the Docker Compose network.
+      TEST_DATABASE_URL_OLAP: mysql+pymysql://root:changeme_root@127.0.0.1:3306/atlas_olap_test
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +47,9 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Create atlas_olap_test database
+        run: mysql -h 127.0.0.1 -uroot -pchangeme_root -e "CREATE DATABASE IF NOT EXISTS atlas_olap_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 
       - name: Lint (ruff)
         run: ruff check .
