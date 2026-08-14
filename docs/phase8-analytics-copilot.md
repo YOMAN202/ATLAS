@@ -110,10 +110,12 @@ No new trust boundary is created. The copilot:
 
 - Receives the same `X-Atlas-Role` header as every dashboard request and passes it straight through to the same `require_role(...)` dependency every endpoint already enforces — a user cannot get the copilot to retrieve anything their role couldn't already see via the dashboard.
 - Holds no database credential of its own — it has no ability to query `atlas_olap` or `atlas_oltp` directly, by construction, not by policy. Removing this capability is a matter of never writing the code path, not remembering to restrict one.
-- Cannot invoke a write operation because none exist for it to call — every endpoint in the tool set is one of the platform's existing `GET`-only routes; there is no `POST`/`PUT`/`DELETE` route anywhere in `main.py` for a compromised or misdirected tool call to reach.
+- Cannot invoke a write operation because none exist for it to call — every endpoint in the tool set is one of the platform's existing `GET`-only routes.
 - Sends only already-role-authorized data to the external LLM API as context — nothing the user couldn't already see. (If the LLM provider is external, this is worth flagging as a data-handling consideration for a real deployment, separate from the in-platform security model: portfolio/demo use is a materially different data-sharing calculus than a real company's supplier and cost data.)
 
 This is a strong section, and the main practical action to preserve it is discipline: the tool set must stay a fixed allowlist of existing read routes, never grow to include a raw-query escape hatch "just for one edge case."
+
+**Update, v1.0 (`docs/phase8-copilot-architecture-diagram.md`):** `POST /api/v1/copilot/ask` was added alongside the original `GET` form, so `main.py` is no longer strictly all-`GET` — this is the one deliberate, scoped exception, and it does not weaken the claim above. POST here changes only how the question is *transmitted* (a JSON body instead of a query string, for longer questions); the route performs no data mutation, the tool layer underneath it still calls only the platform's existing `GET`-only dashboard endpoints, and there is still no `PUT`/`DELETE`/`PATCH` route anywhere in the application. The five bullets above hold unchanged.
 
 ## 7. Comparison against the other Phase 8 alternatives
 

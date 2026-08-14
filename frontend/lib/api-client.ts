@@ -1,6 +1,8 @@
 import type { AtlasRole } from "./roles";
 import type {
   CalibrationResult,
+  CopilotAnswer,
+  CopilotStatus,
   DataQualitySummary,
   ExecutiveSummary,
   ExperimentRow,
@@ -46,26 +48,52 @@ export class ApiError extends Error {
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
-function buildQuery(params?: QueryParams): string {
+// `params` is typed `object` here (not `QueryParams` directly) because every
+// call site below passes an intersection of named interfaces (e.g.
+// `DateRangeFilter & { region_key?: number }`), and TypeScript only
+// considers a type assignable to `Record<string, V>` if it carries an
+// explicit index signature -- named interfaces never do, even when every
+// property is individually compatible. `object` has no such requirement;
+// the runtime shape is unchanged, so this is a type-level relaxation only.
+function buildQuery(params?: object): string {
   if (!params) return "";
   const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
+  for (const [key, value] of Object.entries(params as QueryParams)) {
     if (value !== null && value !== undefined && value !== "") search.set(key, String(value));
   }
   const qs = search.toString();
   return qs ? `?${qs}` : "";
 }
 
-async function apiGet<T>(path: string, role: AtlasRole, params?: QueryParams): Promise<T> {
+async function apiGet<T>(path: string, role: AtlasRole, params?: object): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}${buildQuery(params)}`, {
     headers: { "X-Atlas-Role": role },
     cache: "no-store",
   });
+  return handleResponse<T>(res);
+}
+
+// POST is used for exactly one route (/api/v1/copilot/ask) — a JSON
+// body carries the question instead of a query string, avoiding
+// URL-length/encoding limits on longer questions. This is a transport
+// choice only; the endpoint remains read-only (see main.py's CORS
+// comment and docs/phase8-copilot-architecture-diagram.md).
+async function apiPost<T>(path: string, role: AtlasRole, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "X-Atlas-Role": role, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  return handleResponse<T>(res);
+}
+
+async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = res.statusText;
     try {
-      const body = await res.json();
-      detail = body.detail ?? detail;
+      const errBody = await res.json();
+      detail = errBody.detail ?? detail;
     } catch {
       // response wasn't JSON — fall back to statusText
     }
@@ -232,5 +260,10 @@ export const api = {
         role,
         params
       ),
+  },
+  copilot: {
+    ask: (role: AtlasRole, question: string) =>
+      apiPost<CopilotAnswer>("/api/v1/copilot/ask", role, { question }),
+    status: (role: AtlasRole) => apiGet<CopilotStatus>("/api/v1/copilot/status", role),
   },
 };

@@ -481,3 +481,36 @@ export interface OptimizationRecommendationRow {
   contributing_factors: Record<string, unknown>;
   business_rationale: string;
 }
+
+// --- Copilot (Phase 8.1) ---
+
+export interface CopilotCitation {
+  citation_id: string;
+  endpoint: string;
+  source_tables: string[];
+  model_id: number | null;
+  model_name: string | null;
+  source_forecast_model_id: number | null;
+  source_supplier_model_id: number | null;
+  source_service_level_model_id: number | null;
+  source_inventory_policy_model_id: number | null;
+  etl_run_id: number | null;
+  generated_at: string | null;
+}
+
+export interface CopilotAnswer {
+  verified: boolean;
+  status: "answered" | "refused";
+  answer: string | null;
+  sources: CopilotCitation[];
+  claim_count: number;
+  reason_code: string | null;
+  explanation: string | null;
+  provider: string;
+}
+
+export interface CopilotStatus {
+  provider: string;
+  configured: boolean;
+  model: string | null;
+}

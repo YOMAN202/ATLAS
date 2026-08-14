@@ -41,6 +41,7 @@ const LINKS: NavLink[] = [
     label: "Route & Cost",
     roles: [SUPPLY_PLANNER, ADMINISTRATOR],
   },
+  { href: "/copilot", label: "Copilot", roles: [EXECUTIVE, SUPPLY_PLANNER, ADMINISTRATOR] },
 ];
 
 export function Nav() {

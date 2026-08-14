@@ -47,13 +47,34 @@ class Settings(BaseSettings):
     # one.
     copilot_api_base_url: str = ""
 
-    # Real claim-drafting LLM credential (ADR-023) -- unset in this
-    # environment. AnthropicClaimDraftingClient raises a clear
-    # configuration error rather than silently falling back to anything
-    # if a tool call reaches it with this unset. Never required for the
-    # CI-blocking verification harness, which runs entirely against
-    # FixtureClaimDraftingClient (ADR-023's rationale).
+    # Real claim-drafting LLM credential (ADR-023) -- kept as an optional
+    # future provider per Phase 8.1's provider-abstraction decision
+    # (ADR-024, docs/ATLAS-TDD.md §14). Not wired to any live endpoint;
+    # AnthropicClaimDraftingClient still raises NotImplementedError.
+    # Never required for the CI-blocking verification harness, which
+    # runs entirely against FixtureClaimDraftingClient.
     anthropic_api_key: str = ""
+
+    # Phase 8.1: which LLM provider powers the live chat interface
+    # (app/copilot/provider.py's configuration-driven dispatch). Gemini
+    # (Google AI Studio) is the primary/default provider; "anthropic" is
+    # accepted by the dispatcher but has no live agentic implementation
+    # yet (ADR-024).
+    copilot_llm_provider: str = "gemini"
+
+    # Google AI Studio credential for the live copilot chat interface
+    # (Phase 8.1, ADR-024). Read from GEMINI_API_KEY.
+    # GeminiClaimDraftingClient / run_agentic_pipeline raise a clear
+    # configuration error rather than silently falling back to anything
+    # if this is unset. Never required for the CI-blocking verification
+    # harness, which runs entirely against FixtureClaimDraftingClient.
+    gemini_api_key: str = ""
+
+    # Model ID for the live Gemini agentic loop -- kept as a setting
+    # (not a hardcoded constant) so it can be corrected without a code
+    # change if live validation shows the default is wrong for this
+    # account/API version.
+    copilot_gemini_model: str = "gemini-3.7-flash"
 
     @property
     def dashboard_db_url(self) -> str:
