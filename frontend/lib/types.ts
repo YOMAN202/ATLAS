@@ -390,3 +390,94 @@ export interface InventoryPolicyRow {
   business_rationale: string;
   primary_supplier_key: number | null;
 }
+
+// --- Planning (Phase 7.2 Module E: Scenario Simulation) ---
+
+export interface ScenarioSummary {
+  id: number;
+  scenario_type: string;
+  scenario_name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  scenario_avg_stockout_probability: number;
+  scenario_avg_service_level: number;
+  scenario_inventory_investment: number;
+  stockout_probability_delta: number;
+  service_level_delta: number;
+  investment_delta: number;
+  confidence: string;
+}
+
+export interface ScenarioResultDetail {
+  id: number;
+  scenario_type: string;
+  scenario_name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  baseline_avg_stockout_probability: number;
+  scenario_avg_stockout_probability: number;
+  baseline_n_high_stockout_risk: number;
+  scenario_n_high_stockout_risk: number;
+  baseline_avg_backorder_probability: number;
+  scenario_avg_backorder_probability: number;
+  baseline_inventory_investment: number;
+  scenario_inventory_investment: number;
+  baseline_avg_service_level: number;
+  scenario_avg_service_level: number;
+  baseline_procurement_volume: number;
+  scenario_procurement_volume: number;
+  baseline_n_suppliers_utilized: number;
+  scenario_n_suppliers_utilized: number;
+  changed_assumptions: Record<string, unknown>;
+  affected_modules: string[];
+  key_drivers: string[];
+  confidence: string;
+  sensitivity_indicators: Record<string, number>;
+  n_pairs_evaluated: number;
+  source_forecast_model_id: number | null;
+  source_supplier_model_id: number | null;
+  source_service_level_model_id: number | null;
+  source_inventory_policy_model_id: number | null;
+  generated_at: string | null;
+}
+
+// --- Planning (Phase 7.2 Module F: Route & Cost Optimization) ---
+
+export interface OptimizationSummary {
+  etl_run_id: number;
+  model_id: number | null;
+  model_name: string | null;
+  generated_at: string | null;
+  analysis_window_start: string | null;
+  analysis_window_end: string | null;
+  n_right_sizing_recommendations: number;
+  n_consolidation_recommendations: number;
+  total_estimated_savings: number;
+  right_sizing_estimated_savings: number;
+  consolidation_estimated_savings: number;
+}
+
+export interface WarehouseImpactRow {
+  origin_warehouse_key: number;
+  n_right_sizing_recommendations: number;
+  n_consolidation_recommendations: number;
+  total_estimated_savings: number;
+}
+
+export interface OptimizationRecommendationRow {
+  id: number;
+  recommendation_type: "right_sizing" | "consolidation";
+  origin_warehouse_key: number;
+  shipment_date: string;
+  shipment_numbers: string[];
+  total_quantity: number;
+  distance_miles: number;
+  current_vehicle_type_code: string;
+  current_total_cost: number;
+  recommended_vehicle_type_code: string;
+  recommended_total_cost: number;
+  estimated_savings: number;
+  confidence: string;
+  contributing_factors: Record<string, unknown>;
+  business_rationale: string;
+}

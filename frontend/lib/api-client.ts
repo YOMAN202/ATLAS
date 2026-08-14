@@ -11,12 +11,16 @@ import type {
   InventoryRow,
   InventorySummary,
   OperationalSummary,
+  OptimizationRecommendationRow,
+  OptimizationSummary,
   OrderLineRow,
   PageEnvelope,
   ProcurementRow,
   ProcurementSummary,
   QuarantineRow,
   SalesSummary,
+  ScenarioResultDetail,
+  ScenarioSummary,
   SensitivityScenario,
   ServiceLevelRow,
   ServiceLevelSummary,
@@ -25,6 +29,7 @@ import type {
   SupplierRiskRow,
   SupplierRiskSummary,
   SupplierSummary,
+  WarehouseImpactRow,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -190,6 +195,40 @@ export const api = {
     ) =>
       apiGet<PageEnvelope<InventoryPolicyRow>>(
         "/api/v1/dashboards/planning/inventory-policy/detail",
+        role,
+        params
+      ),
+  },
+  scenarios: {
+    list: (role: AtlasRole) =>
+      apiGet<ScenarioSummary[]>("/api/v1/dashboards/planning/scenarios/list", role),
+    compare: (role: AtlasRole, ids: number[]) =>
+      apiGet<ScenarioResultDetail[]>("/api/v1/dashboards/planning/scenarios/compare", role, {
+        ids: ids.join(","),
+      }),
+    detail: (role: AtlasRole, id: number) =>
+      apiGet<ScenarioResultDetail>(`/api/v1/dashboards/planning/scenarios/${id}`, role),
+  },
+  routeCostOptimization: {
+    summary: (role: AtlasRole) =>
+      apiGet<OptimizationSummary>(
+        "/api/v1/dashboards/planning/route-cost-optimization/summary",
+        role
+      ),
+    warehouseImpact: (role: AtlasRole) =>
+      apiGet<WarehouseImpactRow[]>(
+        "/api/v1/dashboards/planning/route-cost-optimization/warehouse-impact",
+        role
+      ),
+    detail: (
+      role: AtlasRole,
+      params?: PageFilter & {
+        recommendation_type?: "right_sizing" | "consolidation";
+        origin_warehouse_key?: number;
+      }
+    ) =>
+      apiGet<PageEnvelope<OptimizationRecommendationRow>>(
+        "/api/v1/dashboards/planning/route-cost-optimization/detail",
         role,
         params
       ),

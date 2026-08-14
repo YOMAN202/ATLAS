@@ -35,6 +35,12 @@ const LINKS: NavLink[] = [
   { href: "/supplier-risk", label: "Supplier Risk", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
   { href: "/service-level", label: "Service Level", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
   { href: "/inventory-policy", label: "Inventory Policy", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
+  { href: "/scenarios", label: "Scenarios", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
+  {
+    href: "/route-cost-optimization",
+    label: "Route & Cost",
+    roles: [SUPPLY_PLANNER, ADMINISTRATOR],
+  },
 ];
 
 export function Nav() {

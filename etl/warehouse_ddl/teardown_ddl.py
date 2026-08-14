@@ -39,9 +39,16 @@ TABLES_IN_DROP_ORDER = [
     # FKs to dim_product/dim_warehouse/dim_supplier and ds_model_registry
     # (four times: model_id, source_forecast_model_id,
     # source_supplier_model_id, source_service_level_model_id);
-    # ds_policy_sensitivity FKs to ds_model_registry. Order doesn't
-    # strictly matter under FOREIGN_KEY_CHECKS=0 below, but follows the
-    # same reverse-dependency convention as the rest of this list.
+    # ds_policy_sensitivity FKs to ds_model_registry. Phase 7.2:
+    # ds_scenario_result FKs to ds_scenario and ds_model_registry (four
+    # times); ds_scenario FKs to ds_model_registry;
+    # ds_optimization_recommendation FKs to dim_warehouse and
+    # ds_model_registry. Order doesn't strictly matter under
+    # FOREIGN_KEY_CHECKS=0 below, but follows the same reverse-
+    # dependency convention as the rest of this list.
+    "ds_optimization_recommendation",
+    "ds_scenario_result",
+    "ds_scenario",
     "ds_policy_sensitivity",
     "ds_inventory_policy",
     "ds_calibration_bucket",

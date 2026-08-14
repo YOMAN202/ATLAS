@@ -9,7 +9,9 @@ from app.api.v1 import (
     inventory_policy,
     operational,
     procurement,
+    route_cost_optimization,
     sales,
+    scenario,
     service_level,
     supplier,
     supplier_risk,
@@ -40,6 +42,8 @@ app.include_router(forecast.router)
 app.include_router(supplier_risk.router)
 app.include_router(service_level.router)
 app.include_router(inventory_policy.router)
+app.include_router(scenario.router)
+app.include_router(route_cost_optimization.router)
 
 
 @app.get("/health")
