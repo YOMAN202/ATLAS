@@ -16,6 +16,7 @@ the user unless verify_claims independently confirms it against the
 actually-retrieved payload.
 """
 
+import concurrent.futures
 import json
 
 from app.copilot import tools as tool_fns
@@ -381,46 +382,61 @@ def run_agentic_pipeline(
         if not function_call_steps:
             break  # Gemini produced only text -- no tool calls, no submission
 
-        function_results_input = []
-        for step in function_call_steps:
+        function_results_input: list[dict | None] = [None] * len(function_call_steps)
+        for i, step in enumerate(function_call_steps):
             if step.name == "submit_claims":
                 raw_claims = (step.arguments or {}).get("claims", [])
                 submitted_claims = [
                     c for c in (_claim_from_dict(rc) for rc in raw_claims) if c is not None
                 ]
-                function_results_input.append(
-                    {
-                        "type": "function_result",
-                        "name": step.name,
-                        "call_id": step.id,
-                        "result": [{"type": "text", "text": "Claims received."}],
-                    }
-                )
-                continue
+                function_results_input[i] = {
+                    "type": "function_result",
+                    "name": step.name,
+                    "call_id": step.id,
+                    "result": [{"type": "text", "text": "Claims received."}],
+                }
 
-            citation_id = f"c{len(tool_results) + 1}"
-            is_error = False
+        # Real tool calls in this turn run concurrently -- each is an
+        # independent read-only HTTP request, and Gemini can request more
+        # than one in a single turn (e.g. comparing two suppliers).
+        # citation_ids are assigned up front, by step order, so numbering
+        # stays deterministic regardless of which call finishes first, and
+        # results are folded back in submission order (not completion
+        # order) so tool_results/citations never depend on network timing.
+        call_indices = [i for i, s in enumerate(function_call_steps) if s.name != "submit_claims"]
+        base = len(tool_results)
+        citation_ids = {i: f"c{base + n + 1}" for n, i in enumerate(call_indices)}
+
+        def _run(step, citation_id: str):
             try:
                 result = _execute_tool_call(
                     step.name, step.arguments or {}, http_client, role, citation_id
                 )
-                tool_results.append(result)
-                result_text = json.dumps(
+                text_out = json.dumps(
                     {"citation_id": citation_id, "payload": result.payload}, default=str
                 )
+                return result, text_out, False
             except ToolError as exc:
-                is_error = True
-                result_text = f"Error: {exc}"
+                return None, f"Error: {exc}", True
 
-            function_results_input.append(
-                {
-                    "type": "function_result",
-                    "name": step.name,
-                    "call_id": step.id,
-                    "is_error": is_error,
-                    "result": [{"type": "text", "text": result_text}],
+        if call_indices:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(call_indices)) as pool:
+                futures = {
+                    i: pool.submit(_run, function_call_steps[i], citation_ids[i])
+                    for i in call_indices
                 }
-            )
+                for i in call_indices:
+                    result, result_text, is_error = futures[i].result()
+                    if result is not None:
+                        tool_results.append(result)
+                    step = function_call_steps[i]
+                    function_results_input[i] = {
+                        "type": "function_result",
+                        "name": step.name,
+                        "call_id": step.id,
+                        "is_error": is_error,
+                        "result": [{"type": "text", "text": result_text}],
+                    }
 
         current_input = function_results_input
 

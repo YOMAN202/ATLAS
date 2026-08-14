@@ -110,13 +110,19 @@ def get_supplier_risk_summary(
 @router.get("/detail", response_model=PageEnvelope[SupplierRiskRow])
 def get_supplier_risk_detail(
     risk_classification: str | None = Query(None, pattern="^(Low|Medium|High)$"),
+    supplier_key: int | None = Query(
+        None, description="Look up a single supplier directly, bypassing pagination."
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     conn: Connection = Depends(get_olap_connection),
     _role: str = Depends(require_role(SUPPLY_PLANNER, ADMINISTRATOR)),
 ) -> PageEnvelope[SupplierRiskRow]:
-    filter_clause = "(:classification IS NULL OR risk_classification = :classification)"
-    params = {"classification": risk_classification}
+    filter_clause = (
+        "(:classification IS NULL OR risk_classification = :classification) "
+        "AND (:supplier_key IS NULL OR supplier_key = :supplier_key)"
+    )
+    params = {"classification": risk_classification, "supplier_key": supplier_key}
 
     total = conn.execute(
         text(f"SELECT COUNT(*) FROM ds_supplier_risk_score WHERE {filter_clause}"), params

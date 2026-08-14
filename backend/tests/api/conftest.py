@@ -76,6 +76,8 @@ def olap_engine(_apply_schema):
 
 @pytest.fixture(autouse=True)
 def _reset_between_tests(olap_engine):
+    from app.api.deps import _etl_run_id_cache
+
     def _truncate():
         with olap_engine.connect() as conn:
             with conn.begin():
@@ -83,6 +85,7 @@ def _reset_between_tests(olap_engine):
                 for table in _TABLES_TO_RESET:
                     conn.execute(text(f"TRUNCATE TABLE {table}"))
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
+        _etl_run_id_cache.clear()  # module-level TTL cache would otherwise leak between tests
 
     _truncate()
     yield

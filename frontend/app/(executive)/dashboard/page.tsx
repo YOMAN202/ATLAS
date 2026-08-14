@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import { Chart } from "@/components/chart";
+import { Chart, type EChartsOption } from "@/components/chart";
 import { DashboardError, DashboardLoading } from "@/components/dashboard-status";
 import { KpiCard } from "@/components/kpi-card";
 import { api } from "@/lib/api-client";
@@ -23,6 +23,31 @@ export default function ExecutiveDashboardPage() {
       }),
     [role, dateFrom, dateTo],
   );
+
+  const trendOption = useMemo<EChartsOption | null>(() => {
+    if (query.status !== "ready") return null;
+    return {
+      tooltip: { trigger: "axis" },
+      legend: { data: ["Revenue", "Gross Margin"] },
+      grid: { left: 60, right: 20, top: 40, bottom: 30 },
+      xAxis: { type: "category", data: query.data.daily_trend.map((p) => p.full_date) },
+      yAxis: { type: "value" },
+      series: [
+        {
+          name: "Revenue",
+          type: "line",
+          smooth: true,
+          data: query.data.daily_trend.map((p) => p.total_revenue),
+        },
+        {
+          name: "Gross Margin",
+          type: "line",
+          smooth: true,
+          data: query.data.daily_trend.map((p) => p.total_gross_margin),
+        },
+      ],
+    };
+  }, [query]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -69,29 +94,7 @@ export default function ExecutiveDashboardPage() {
             className="md:w-1/3"
           />
 
-          <Chart
-            option={{
-              tooltip: { trigger: "axis" },
-              legend: { data: ["Revenue", "Gross Margin"] },
-              grid: { left: 60, right: 20, top: 40, bottom: 30 },
-              xAxis: { type: "category", data: query.data.daily_trend.map((p) => p.full_date) },
-              yAxis: { type: "value" },
-              series: [
-                {
-                  name: "Revenue",
-                  type: "line",
-                  smooth: true,
-                  data: query.data.daily_trend.map((p) => p.total_revenue),
-                },
-                {
-                  name: "Gross Margin",
-                  type: "line",
-                  smooth: true,
-                  data: query.data.daily_trend.map((p) => p.total_gross_margin),
-                },
-              ],
-            }}
-          />
+          {trendOption && <Chart option={trendOption} />}
         </>
       )}
     </div>

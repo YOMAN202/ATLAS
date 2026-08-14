@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 
-import { Chart } from "@/components/chart";
+import { Chart, type EChartsOption } from "@/components/chart";
 import { DashboardError, DashboardLoading } from "@/components/dashboard-status";
 import { DataTable } from "@/components/data-table";
 import { KpiCard } from "@/components/kpi-card";
@@ -44,6 +44,26 @@ export default function DataQualityDashboardPage() {
     [role, page],
   );
 
+  const runTrendOption = useMemo<EChartsOption | null>(() => {
+    if (summary.status !== "ready" || summary.data.run_trend.length === 0) return null;
+    return {
+      tooltip: { trigger: "axis" },
+      grid: { left: 60, right: 20, top: 20, bottom: 30 },
+      xAxis: {
+        type: "category",
+        data: summary.data.run_trend.map((r) => `#${r.etl_run_id}`),
+      },
+      yAxis: { type: "value", min: 0, max: 1, axisLabel: { formatter: "{value}" } },
+      series: [
+        {
+          name: "DQ Score",
+          type: "bar",
+          data: summary.data.run_trend.map((r) => r.overall_dq_score),
+        },
+      ],
+    };
+  }, [summary]);
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Data Quality</h1>
@@ -69,27 +89,7 @@ export default function DataQualityDashboardPage() {
             />
           </div>
 
-          {summary.data.run_trend.length > 0 && (
-            <Chart
-              option={{
-                tooltip: { trigger: "axis" },
-                grid: { left: 60, right: 20, top: 20, bottom: 30 },
-                xAxis: {
-                  type: "category",
-                  data: summary.data.run_trend.map((r) => `#${r.etl_run_id}`),
-                },
-                yAxis: { type: "value", min: 0, max: 1, axisLabel: { formatter: "{value}" } },
-                series: [
-                  {
-                    name: "DQ Score",
-                    type: "bar",
-                    data: summary.data.run_trend.map((r) => r.overall_dq_score),
-                  },
-                ],
-              }}
-              height={220}
-            />
-          )}
+          {runTrendOption && <Chart option={runTrendOption} height={220} />}
 
           <div>
             <h2 className="mb-2 text-sm font-medium text-slate-500">

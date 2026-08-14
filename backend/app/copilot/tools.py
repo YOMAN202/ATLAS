@@ -15,12 +15,10 @@ from typing import Protocol
 
 from app.copilot.citations import Citation, ToolResult
 
-# The bounded page scan below exists because the underlying detail
-# endpoints (frozen, per-module dashboard contracts -- not modified
-# here) have no single-entity lookup filter, only pagination and
-# coarse filters. Bounding it keeps a lookup miss cheap and turns into
-# a correct `entity_not_found` refusal rather than an unbounded scan.
-_MAX_LOOKUP_PAGES = 10
+# Page size for the "list everything matching a coarse filter" calls
+# below (single-entity lookups use their detail endpoint's dedicated
+# key filter instead, added specifically so this tool layer doesn't
+# have to page-scan for one row).
 _LOOKUP_PAGE_SIZE = 500
 
 
@@ -91,23 +89,15 @@ def get_supplier_risk(
 
     row = None
     if supplier_key is not None:
-        for page in range(1, _MAX_LOOKUP_PAGES + 1):
-            detail = _get_json(
-                client,
-                role,
-                "/api/v1/dashboards/planning/supplier-risk/detail",
-                params={
-                    "page": page,
-                    "page_size": _LOOKUP_PAGE_SIZE,
-                    "risk_classification": risk_classification,
-                },
-            )
-            match = next((r for r in detail["data"] if r["supplier_key"] == supplier_key), None)
-            if match is not None:
-                row = match
-                break
-            if page * _LOOKUP_PAGE_SIZE >= detail["total"]:
-                break
+        # A direct supplier_key filter on /detail (added for copilot
+        # latency -- one request instead of a paginated scan).
+        detail = _get_json(
+            client,
+            role,
+            "/api/v1/dashboards/planning/supplier-risk/detail",
+            params={"page": 1, "page_size": 1, "supplier_key": supplier_key},
+        )
+        row = detail["data"][0] if detail["data"] else None
         payload = {"summary": summary, "supplier": row}
     else:
         detail = _get_json(
@@ -148,26 +138,18 @@ def get_inventory_recommendation(
 
     row = None
     if product_key is not None and warehouse_key is not None:
-        for page in range(1, _MAX_LOOKUP_PAGES + 1):
-            detail = _get_json(
-                client,
-                role,
-                "/api/v1/dashboards/planning/inventory-policy/detail",
-                params={"page": page, "page_size": _LOOKUP_PAGE_SIZE},
-            )
-            match = next(
-                (
-                    r
-                    for r in detail["data"]
-                    if r["product_key"] == product_key and r["warehouse_key"] == warehouse_key
-                ),
-                None,
-            )
-            if match is not None:
-                row = match
-                break
-            if page * _LOOKUP_PAGE_SIZE >= detail["total"]:
-                break
+        detail = _get_json(
+            client,
+            role,
+            "/api/v1/dashboards/planning/inventory-policy/detail",
+            params={
+                "page": 1,
+                "page_size": 1,
+                "product_key": product_key,
+                "warehouse_key": warehouse_key,
+            },
+        )
+        row = detail["data"][0] if detail["data"] else None
         payload = {"summary": summary, "recommendation": row}
     else:
         payload = {"summary": summary}
@@ -201,26 +183,18 @@ def get_service_level(
 
     row = None
     if product_key is not None and warehouse_key is not None:
-        for page in range(1, _MAX_LOOKUP_PAGES + 1):
-            detail = _get_json(
-                client,
-                role,
-                "/api/v1/dashboards/planning/service-level/detail",
-                params={"page": page, "page_size": _LOOKUP_PAGE_SIZE},
-            )
-            match = next(
-                (
-                    r
-                    for r in detail["data"]
-                    if r["product_key"] == product_key and r["warehouse_key"] == warehouse_key
-                ),
-                None,
-            )
-            if match is not None:
-                row = match
-                break
-            if page * _LOOKUP_PAGE_SIZE >= detail["total"]:
-                break
+        detail = _get_json(
+            client,
+            role,
+            "/api/v1/dashboards/planning/service-level/detail",
+            params={
+                "page": 1,
+                "page_size": 1,
+                "product_key": product_key,
+                "warehouse_key": warehouse_key,
+            },
+        )
+        row = detail["data"][0] if detail["data"] else None
         payload = {"summary": summary, "prediction": row}
     else:
         payload = {"summary": summary}

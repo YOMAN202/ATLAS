@@ -160,7 +160,11 @@ def get_inventory_policy_sensitivity(
     ]
 
 
-_DETAIL_FILTER = "(:balancing IS NULL OR balancing_recommendation = :balancing)"
+_DETAIL_FILTER = (
+    "(:balancing IS NULL OR balancing_recommendation = :balancing) "
+    "AND (:product_key IS NULL OR product_key = :product_key) "
+    "AND (:warehouse_key IS NULL OR warehouse_key = :warehouse_key)"
+)
 
 
 @router.get("/detail", response_model=PageEnvelope[InventoryPolicyRow])
@@ -168,12 +172,20 @@ def get_inventory_policy_detail(
     balancing_recommendation: str | None = Query(
         None, pattern="^(reorder_now|adequate|excess_inventory)$"
     ),
+    product_key: int | None = Query(
+        None, description="Look up a single (product, warehouse) pair directly."
+    ),
+    warehouse_key: int | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     conn: Connection = Depends(get_olap_connection),
     _role: str = Depends(require_role(SUPPLY_PLANNER, ADMINISTRATOR)),
 ) -> PageEnvelope[InventoryPolicyRow]:
-    params = {"balancing": balancing_recommendation}
+    params = {
+        "balancing": balancing_recommendation,
+        "product_key": product_key,
+        "warehouse_key": warehouse_key,
+    }
 
     total = conn.execute(
         text(f"SELECT COUNT(*) FROM ds_inventory_policy WHERE {_DETAIL_FILTER}"), params

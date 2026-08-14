@@ -196,7 +196,9 @@ def get_service_level_calibration(
 _DETAIL_FILTER = (
     "(:min_stockout IS NULL OR stockout_probability >= :min_stockout) "
     "AND (:min_backorder IS NULL OR backorder_probability >= :min_backorder) "
-    "AND (:min_delay IS NULL OR fulfillment_delay_probability >= :min_delay)"
+    "AND (:min_delay IS NULL OR fulfillment_delay_probability >= :min_delay) "
+    "AND (:product_key IS NULL OR product_key = :product_key) "
+    "AND (:warehouse_key IS NULL OR warehouse_key = :warehouse_key)"
 )
 
 
@@ -205,6 +207,10 @@ def get_service_level_detail(
     min_stockout: float | None = Query(None, ge=0, le=1),
     min_backorder: float | None = Query(None, ge=0, le=1),
     min_delay: float | None = Query(None, ge=0, le=1),
+    product_key: int | None = Query(
+        None, description="Look up a single (product, warehouse) pair directly."
+    ),
+    warehouse_key: int | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     conn: Connection = Depends(get_olap_connection),
@@ -214,6 +220,8 @@ def get_service_level_detail(
         "min_stockout": min_stockout,
         "min_backorder": min_backorder,
         "min_delay": min_delay,
+        "product_key": product_key,
+        "warehouse_key": warehouse_key,
     }
 
     total = conn.execute(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { EChartsOption } from "echarts";
+import type { EChartsOption } from "@/components/chart";
 
 import { Chart } from "@/components/chart";
 import { DashboardError, DashboardLoading } from "@/components/dashboard-status";
