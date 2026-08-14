@@ -345,3 +345,48 @@ export interface ServiceLevelRow {
   fulfillment_delay_contributing_factors: Record<string, unknown> | null;
   primary_supplier_key: number | null;
 }
+
+// --- Planning (Phase 7 Module B: Inventory Optimization) ---
+
+export interface BalancingBreakdown {
+  reorder_now: number;
+  adequate: number;
+  excess_inventory: number;
+}
+
+export interface InventoryPolicySummary {
+  etl_run_id: number;
+  model_id: number | null;
+  model_name: string | null;
+  source_forecast_model_id: number | null;
+  source_supplier_model_id: number | null;
+  source_service_level_model_id: number | null;
+  generated_at: string | null;
+  n_recommendations: number;
+  avg_safety_stock: number | null;
+  avg_reorder_point: number | null;
+  balancing_breakdown: BalancingBreakdown;
+}
+
+export interface SensitivityScenario {
+  target_service_level: number;
+  avg_safety_stock: number;
+  avg_reorder_point: number;
+  total_inventory_investment: number;
+  achieved_service_level: number;
+  n_pairs: number;
+}
+
+export interface InventoryPolicyRow {
+  product_key: number;
+  warehouse_key: number;
+  safety_stock: number;
+  reorder_point: number;
+  service_level_inventory_target: number;
+  current_available_quantity: number;
+  balancing_recommendation: "reorder_now" | "adequate" | "excess_inventory";
+  confidence: string;
+  contributing_factors: Record<string, unknown>;
+  business_rationale: string;
+  primary_supplier_key: number | null;
+}

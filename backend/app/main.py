@@ -6,6 +6,7 @@ from app.api.v1 import (
     executive,
     forecast,
     inventory,
+    inventory_policy,
     operational,
     procurement,
     sales,
@@ -38,6 +39,7 @@ app.include_router(data_quality.router)
 app.include_router(forecast.router)
 app.include_router(supplier_risk.router)
 app.include_router(service_level.router)
+app.include_router(inventory_policy.router)
 
 
 @app.get("/health")

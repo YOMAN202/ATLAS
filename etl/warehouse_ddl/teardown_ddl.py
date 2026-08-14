@@ -35,9 +35,15 @@ TABLES_IN_DROP_ORDER = [
     # ds_model_registry, etl_run_log; ds_service_level_prediction FKs to
     # dim_product/dim_warehouse/dim_supplier and ds_model_registry (three
     # times: model_id, source_forecast_model_id, source_supplier_model_id);
-    # ds_calibration_bucket FKs to ds_model_registry. Order doesn't
+    # ds_calibration_bucket FKs to ds_model_registry; ds_inventory_policy
+    # FKs to dim_product/dim_warehouse/dim_supplier and ds_model_registry
+    # (four times: model_id, source_forecast_model_id,
+    # source_supplier_model_id, source_service_level_model_id);
+    # ds_policy_sensitivity FKs to ds_model_registry. Order doesn't
     # strictly matter under FOREIGN_KEY_CHECKS=0 below, but follows the
     # same reverse-dependency convention as the rest of this list.
+    "ds_policy_sensitivity",
+    "ds_inventory_policy",
     "ds_calibration_bucket",
     "ds_service_level_prediction",
     "ds_supplier_risk_score",

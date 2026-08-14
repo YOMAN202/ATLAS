@@ -6,6 +6,8 @@ import type {
   ExperimentRow,
   ForecastRow,
   ForecastSummary,
+  InventoryPolicyRow,
+  InventoryPolicySummary,
   InventoryRow,
   InventorySummary,
   OperationalSummary,
@@ -15,6 +17,7 @@ import type {
   ProcurementSummary,
   QuarantineRow,
   SalesSummary,
+  SensitivityScenario,
   ServiceLevelRow,
   ServiceLevelSummary,
   ShipmentRow,
@@ -167,6 +170,26 @@ export const api = {
     ) =>
       apiGet<PageEnvelope<ServiceLevelRow>>(
         "/api/v1/dashboards/planning/service-level/detail",
+        role,
+        params
+      ),
+  },
+  inventoryPolicy: {
+    summary: (role: AtlasRole) =>
+      apiGet<InventoryPolicySummary>("/api/v1/dashboards/planning/inventory-policy/summary", role),
+    sensitivity: (role: AtlasRole) =>
+      apiGet<SensitivityScenario[]>(
+        "/api/v1/dashboards/planning/inventory-policy/sensitivity",
+        role
+      ),
+    detail: (
+      role: AtlasRole,
+      params?: PageFilter & {
+        balancing_recommendation?: "reorder_now" | "adequate" | "excess_inventory";
+      }
+    ) =>
+      apiGet<PageEnvelope<InventoryPolicyRow>>(
+        "/api/v1/dashboards/planning/inventory-policy/detail",
         role,
         params
       ),
