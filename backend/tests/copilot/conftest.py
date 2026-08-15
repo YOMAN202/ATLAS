@@ -93,7 +93,7 @@ def _reset_between_tests(olap_engine):
 @pytest.fixture
 def client(olap_engine):
     from app.api.cache import _cache
-    from app.api.deps import get_olap_connection
+    from app.api.deps import _etl_run_id_cache, get_olap_connection
     from app.main import app
 
     def _override_get_olap_connection():
@@ -102,6 +102,7 @@ def client(olap_engine):
 
     app.dependency_overrides[get_olap_connection] = _override_get_olap_connection
     _cache.clear()
+    _etl_run_id_cache.clear()  # module-level TTL cache would otherwise leak between tests
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

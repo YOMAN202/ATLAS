@@ -1,0 +1,16 @@
+# Production/demo override for the frontend (found necessary during the
+# v1.0.1 performance audit: docker-compose.yml's default frontend runs
+# `next dev`, which compiles each route on first request -- 10-40+
+# seconds for the very first hit on some pages, invisible after that.
+# Fine for active development; the wrong choice for a live demo).
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Backend and simulation are unaffected -- their dev-mode reload has no
+# equivalent up-front compile cost, so there's nothing to override there.
+services:
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    volumes: !reset []

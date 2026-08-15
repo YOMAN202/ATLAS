@@ -112,6 +112,17 @@ def _ask_copilot(question: str, role: str) -> CopilotAnswerOut:
     """Shared implementation behind both the POST (primary) and GET
     (backward-compatible) /ask routes -- one code path, two ways to
     supply the question, per the module docstring."""
+    # google-genai has two separate, unrelated APIError classes: the
+    # public one above (google.genai.errors), and an internal one used
+    # by the Interactions API's implementation module
+    # (google.genai._gaos.lib.compat_errors -- confirmed by introspecting
+    # the installed SDK, not documented anywhere public). Every real
+    # Gemini failure from run_agentic_pipeline (bad key, rate limit,
+    # model unavailable) raises the LATTER, so catching only the public
+    # class here left every one of those falling through to an unhandled
+    # 500 -- found live when a rate-limit error surfaced as a raw
+    # "Internal Server Error" during the v1.0.1 performance audit.
+    from google.genai._gaos.lib.compat_errors import APIError as _GaosAPIError
     from google.genai.errors import APIError
 
     try:
@@ -134,6 +145,13 @@ def _ask_copilot(question: str, role: str) -> CopilotAnswerOut:
         # "is a key configured" that /status alone can't give.
         raise HTTPException(
             status_code=502, detail=f"Gemini API error ({exc.status}): {exc.message}"
+        ) from exc
+    except _GaosAPIError as exc:
+        # Same intent as above, for the Interactions API's own error
+        # class -- shaped differently (status_code, no .message
+        # attribute; the real detail is in str(exc)).
+        raise HTTPException(
+            status_code=502, detail=f"Gemini API error ({exc.status_code}): {exc}"
         ) from exc
 
     if isinstance(result, Refusal):
