@@ -33,6 +33,10 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 
+# Vercel / Railway local project links
+.vercel/
+railway.json
+
 # Build output
 dist/
 build/

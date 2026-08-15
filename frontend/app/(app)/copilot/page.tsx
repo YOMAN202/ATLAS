@@ -142,7 +142,27 @@ function AnswerCard({ turn }: { turn: ChatTurn }) {
   );
 }
 
-function ProviderStatusBadge({ status }: { status: CopilotStatus | "loading" | "error" }) {
+function ProviderStatusBadge({
+  status,
+  degradedUntil,
+}: {
+  status: CopilotStatus | "loading" | "error";
+  /** Epoch ms until which the badge shows "rate limited" regardless of the
+   * passive /status check -- set from a live 502 on the last ask(), since
+   * "a key is configured" and "the last real call actually succeeded" are
+   * different facts, and the badge should reflect the second one when it's
+   * fresher. Cleared automatically once this time passes. */
+  degradedUntil: number | null;
+}) {
+  if (degradedUntil && degradedUntil > Date.now()) {
+    const retrySeconds = Math.max(0, Math.ceil((degradedUntil - Date.now()) / 1000));
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-status-critical/25 bg-status-critical/10 px-2.5 py-1 text-2xs font-medium text-status-critical">
+        <span className="h-1.5 w-1.5 rounded-full bg-status-critical" />
+        Rate limited · retry in {retrySeconds}s
+      </span>
+    );
+  }
   if (status === "loading") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-1 text-2xs font-medium text-ink-muted">
@@ -175,6 +195,7 @@ export default function CopilotPage() {
   const [providerStatus, setProviderStatus] = useState<CopilotStatus | "loading" | "error">(
     "loading",
   );
+  const [degradedUntil, setDegradedUntil] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const busy = turns.some((t) => t.status === "loading");
@@ -200,6 +221,15 @@ export default function CopilotPage() {
     };
   }, [role]);
 
+  // Ticks a re-render every second so the "retry in Ns" badge counts down
+  // instead of freezing at the value from when the error first landed.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (!degradedUntil) return;
+    const id = setInterval(() => forceTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [degradedUntil]);
+
   async function ask(question: string) {
     if (!question || busy) return;
     const id = nextId;
@@ -210,17 +240,37 @@ export default function CopilotPage() {
     try {
       const answer = await api.copilot.ask(role, question);
       setTurns((prev) => prev.map((t) => (t.id === id ? { ...t, status: "done", answer } : t)));
+      setDegradedUntil(null);
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.status === 403
-            ? "Your current role doesn't have access to the copilot. Switch roles above."
-            : err.status === 503
-              ? "The copilot isn't configured yet (no LLM provider credential set on the backend)."
-              : err.detail
-          : err instanceof Error
-            ? err.message
-            : "Unknown error.";
+      let message: string;
+      if (err instanceof ApiError) {
+        if (err.status === 403) {
+          message = "Your current role doesn't have access to the copilot. Switch roles above.";
+        } else if (err.status === 503) {
+          message = "The copilot isn't configured yet (no LLM provider credential set on the backend).";
+        } else if (err.status === 502) {
+          // The backend passes through the real Gemini error text (see
+          // app/api/v1/copilot.py's APIError handler) -- a provider-side
+          // rate limit is the common case on a free-tier key, so it gets
+          // its own friendly message instead of the raw error dump.
+          const retryMatch = err.detail.match(/retry in ([\d.]+)s/i);
+          const retrySeconds = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : null;
+          const isRateLimit = /quota|rate.?limit|429/i.test(err.detail);
+          if (isRateLimit) {
+            setDegradedUntil(Date.now() + (retrySeconds ?? 30) * 1000);
+            message = retrySeconds
+              ? `Gemini's free-tier rate limit was hit — try again in about ${retrySeconds}s.`
+              : "Gemini's free-tier rate limit was hit — try again in a moment.";
+          } else {
+            setDegradedUntil(Date.now() + 15_000);
+            message = "Gemini is temporarily unavailable. Try again shortly.";
+          }
+        } else {
+          message = err.detail;
+        }
+      } else {
+        message = err instanceof Error ? err.message : "Unknown error.";
+      }
       setTurns((prev) =>
         prev.map((t) => (t.id === id ? { ...t, status: "error", errorMessage: message } : t)),
       );
@@ -242,7 +292,7 @@ export default function CopilotPage() {
             </p>
           </div>
         </div>
-        <ProviderStatusBadge status={providerStatus} />
+        <ProviderStatusBadge status={providerStatus} degradedUntil={degradedUntil} />
       </div>
 
       <form
