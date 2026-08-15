@@ -20,7 +20,7 @@ from sqlalchemy.engine import Connection
 from app.api.cache import cache_key, get_cached, set_cached
 from app.api.deps import get_current_etl_run_id, get_olap_connection
 from app.api.schemas import PageEnvelope
-from app.core.security import ADMINISTRATOR, SUPPLY_PLANNER, require_role
+from app.core.security import ADMINISTRATOR, EXECUTIVE, SUPPLY_PLANNER, require_role
 
 router = APIRouter(prefix="/api/v1/dashboards/planning/service-level", tags=["planning"])
 
@@ -78,7 +78,8 @@ HIGH_STOCKOUT_RISK_THRESHOLD = 0.5
 @router.get("/summary", response_model=ServiceLevelSummary)
 def get_service_level_summary(
     conn: Connection = Depends(get_olap_connection),
-    _role: str = Depends(require_role(SUPPLY_PLANNER, ADMINISTRATOR)),
+    # EXECUTIVE added (v2 redesign) -- see forecast.py's identical note.
+    _role: str = Depends(require_role(EXECUTIVE, SUPPLY_PLANNER, ADMINISTRATOR)),
 ) -> ServiceLevelSummary:
     etl_run_id = get_current_etl_run_id(conn)
     key = cache_key("service_level_summary", etl_run_id)

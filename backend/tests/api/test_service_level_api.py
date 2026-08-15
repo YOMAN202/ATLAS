@@ -240,11 +240,21 @@ def test_service_level_calibration_reconciles_to_seeded_experiment_run(
     assert body[0]["buckets"][1]["actual_outcome_rate"] == 0.6
 
 
-def test_service_level_dashboard_rejects_executive_role(client, seed_run):
+def test_service_level_dashboard_rejects_operations_analyst_role(client, seed_run):
+    resp = client.get(
+        "/api/v1/dashboards/planning/service-level/summary",
+        headers={"X-Atlas-Role": "operations_analyst"},
+    )
+    assert resp.status_code == 403
+
+
+def test_service_level_dashboard_allows_executive(client, seed_run):
+    # executive was added to this gate for the v2 executive dashboard,
+    # which surfaces stockout/backorder risk alongside other modules' KPIs.
     resp = client.get(
         "/api/v1/dashboards/planning/service-level/summary", headers={"X-Atlas-Role": "executive"}
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 200
 
 
 def test_service_level_dashboard_allows_administrator(client, seed_run):

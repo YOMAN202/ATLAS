@@ -36,6 +36,47 @@ echarts.use([
   CanvasRenderer,
 ]);
 
+// Registered once, applied to every chart via echarts.init(el, "atlas-dark")
+// -- a design-system-level fix rather than a per-chart-option one: every
+// page's chart automatically gets correct dark-surface axis/legend/tooltip
+// styling without each page having to restate it. Series colors are the
+// dataviz skill's validated dark-mode categorical palette (fixed order,
+// never cycled per filter); axis/split-line/text colors match
+// app/globals.css's --chart-gridline/--chart-baseline/ink tokens.
+echarts.registerTheme("atlas-dark", {
+  color: [
+    "#3987e5",
+    "#d95926",
+    "#199e70",
+    "#c98500",
+    "#d55181",
+    "#008300",
+    "#9085e9",
+    "#e66767",
+  ],
+  backgroundColor: "transparent",
+  textStyle: { color: "#c3c2b7" },
+  title: { textStyle: { color: "#f5f5f4" }, subtextStyle: { color: "#898781" } },
+  legend: { textStyle: { color: "#c3c2b7" } },
+  tooltip: {
+    backgroundColor: "#232322",
+    borderColor: "rgba(255,255,255,0.08)",
+    textStyle: { color: "#f5f5f4" },
+  },
+  categoryAxis: {
+    axisLine: { lineStyle: { color: "#383835" } },
+    axisTick: { lineStyle: { color: "#383835" } },
+    axisLabel: { color: "#898781" },
+    splitLine: { lineStyle: { color: "#2c2c2a" } },
+  },
+  valueAxis: {
+    axisLine: { lineStyle: { color: "#383835" } },
+    axisTick: { lineStyle: { color: "#383835" } },
+    axisLabel: { color: "#898781" },
+    splitLine: { lineStyle: { color: "#2c2c2a" } },
+  },
+});
+
 export type EChartsOption = ComposeOption<
   | BarSeriesOption
   | LineSeriesOption
@@ -61,7 +102,7 @@ export function Chart({ option, height = 280, className }: ChartProps) {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const chart = echarts.init(containerRef.current);
+    const chart = echarts.init(containerRef.current, "atlas-dark");
     chartRef.current = chart;
 
     const resizeObserver = new ResizeObserver(() => chart.resize());

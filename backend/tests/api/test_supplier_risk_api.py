@@ -175,9 +175,10 @@ def test_supplier_risk_detail_orders_by_risk_score_descending(client, olap_engin
     assert [r["supplier_key"] for r in body["data"]] == [sk2, sk1]
 
 
-def test_supplier_risk_dashboard_rejects_executive_role(client, seed_run):
+def test_supplier_risk_dashboard_rejects_operations_analyst_role(client, seed_run):
     resp = client.get(
-        "/api/v1/dashboards/planning/supplier-risk/summary", headers={"X-Atlas-Role": "executive"}
+        "/api/v1/dashboards/planning/supplier-risk/summary",
+        headers={"X-Atlas-Role": "operations_analyst"},
     )
     assert resp.status_code == 403
 
@@ -188,3 +189,23 @@ def test_supplier_risk_dashboard_allows_administrator(client, seed_run):
         headers={"X-Atlas-Role": "administrator"},
     )
     assert resp.status_code == 200
+
+
+def test_supplier_risk_dashboard_allows_executive(client, seed_run):
+    # executive was added to /summary's role gate for the v2 executive
+    # dashboard, which surfaces avg_risk_score/classification_breakdown
+    # alongside other modules' KPIs.
+    resp = client.get(
+        "/api/v1/dashboards/planning/supplier-risk/summary", headers={"X-Atlas-Role": "executive"}
+    )
+    assert resp.status_code == 200
+
+
+def test_supplier_risk_detail_allows_executive_and_operations_analyst(client, seed_run):
+    # Both were added to /detail's role gate for the v2 supply-chain map,
+    # which reads top-risk suppliers here.
+    for role in ("executive", "operations_analyst"):
+        resp = client.get(
+            "/api/v1/dashboards/planning/supplier-risk/detail", headers={"X-Atlas-Role": role}
+        )
+        assert resp.status_code == 200

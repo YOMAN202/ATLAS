@@ -1,6 +1,16 @@
 "use client";
 
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData, TValue> {
+    /** Overrides the cell's default whitespace-nowrap -- for long free-text columns. */
+    wrap?: boolean;
+  }
+}
 
 interface DataTableProps<T> {
   columns: ColumnDef<T, unknown>[];
@@ -24,15 +34,15 @@ export function DataTable<T>({
 
   return (
     <div>
-      <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
+      <div className="overflow-x-auto rounded-lg border border-hairline bg-surface">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-slate-800/50">
+          <thead className="bg-surface-inset">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-500 dark:text-slate-400"
+                    className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-medium uppercase tracking-wide text-ink-muted"
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
@@ -42,9 +52,20 @@ export function DataTable<T>({
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-t border-slate-100 dark:border-slate-800">
+              <tr
+                key={row.id}
+                className="border-t border-hairline transition-colors hover:bg-surface-2/60"
+              >
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="whitespace-nowrap px-3 py-2 tabular-nums">
+                  <td
+                    key={cell.id}
+                    className={cn(
+                      "px-4 py-2.5 tabular-nums",
+                      cell.column.columnDef.meta?.wrap
+                        ? "max-w-md whitespace-normal"
+                        : "whitespace-nowrap",
+                    )}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -52,7 +73,7 @@ export function DataTable<T>({
             ))}
             {data.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-ink-muted">
                   No rows for the current filters.
                 </td>
               </tr>
@@ -60,24 +81,24 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
-      <div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+      <div className="mt-3 flex items-center justify-between text-xs text-ink-muted">
         <span>
           {total.toLocaleString()} rows — page {page} of {lastPage}
         </span>
         <div className="flex gap-2">
           <button
-            className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40 dark:border-slate-700"
+            className="inline-flex items-center gap-1 rounded-md border border-hairline px-2.5 py-1.5 text-ink-secondary transition-colors hover:border-hairline-strong hover:text-ink-primary disabled:pointer-events-none disabled:opacity-40"
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
           >
-            Previous
+            <ChevronLeft className="h-3.5 w-3.5" /> Previous
           </button>
           <button
-            className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40 dark:border-slate-700"
+            className="inline-flex items-center gap-1 rounded-md border border-hairline px-2.5 py-1.5 text-ink-secondary transition-colors hover:border-hairline-strong hover:text-ink-primary disabled:pointer-events-none disabled:opacity-40"
             disabled={page >= lastPage}
             onClick={() => onPageChange(page + 1)}
           >
-            Next
+            Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>

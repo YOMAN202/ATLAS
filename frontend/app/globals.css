@@ -1,3 +1,77 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ATLAS v2 design tokens — docs/ATLAS-v2-design-system.md is the source
+   of truth for the rationale. Dark-only by design (this is the
+   product's one identity, not a light/dark toggle): the categorical,
+   status, and sequential steps below are the dataviz skill's validated
+   dark-surface palette (surface #1a1a19), reused unchanged rather than
+   re-derived, with the page plane pushed darker (#0a0a0b) for the
+   graphite/near-black depth the brief calls for. RGB triplets (not hex)
+   so Tailwind's `<alpha-value>` opacity modifier works on these tokens. */
+:root {
+  --bg-page: 10 10 11;
+  --bg-surface: 26 26 25;
+  --bg-surface-2: 35 35 34;
+  --bg-surface-inset: 19 19 19;
+
+  --text-primary: 245 245 244;
+  --text-secondary: 195 194 183;
+  --text-muted: 137 135 129;
+
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-hairline-strong: rgba(255, 255, 255, 0.14);
+
+  --accent: 57 135 229;
+  --accent-hover: 90 158 236;
+  --accent-subtle: rgba(57, 135, 229, 0.14);
+
+  --status-good: 12 163 12;
+  --status-warning: 250 178 25;
+  --status-serious: 236 131 90;
+  --status-critical: 208 59 59;
+
+  /* Fixed-order categorical chart palette -- never cycled, never
+     reassigned per filter (dataviz skill's #1 rule). */
+  --series-1: 57 135 229; /* blue */
+  --series-2: 217 89 38; /* orange */
+  --series-3: 25 158 112; /* aqua */
+  --series-4: 201 133 0; /* yellow */
+  --series-5: 213 81 129; /* magenta */
+  --series-6: 0 131 0; /* green */
+  --series-7: 144 133 233; /* violet */
+  --series-8: 230 103 103; /* red */
+
+  --chart-gridline: #2c2c2a;
+  --chart-baseline: #383835;
+}
+
+@layer base {
+  * {
+    border-color: theme("colors.hairline");
+  }
+  body {
+    @apply bg-page text-ink-primary;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    background: rgb(var(--accent) / 0.35);
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  .skeleton {
+    @apply animate-shimmer rounded bg-surface-2;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--bg-surface-2)) 25%,
+      rgb(var(--bg-surface-inset)) 37%,
+      rgb(var(--bg-surface-2)) 63%
+    );
+    background-size: 200% 100%;
+  }
+}

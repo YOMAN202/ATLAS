@@ -4,7 +4,7 @@
 
 ATLAS is an end-to-end supply-chain intelligence platform: a rule-driven simulation engine that generates a realistic transaction history, a normalized OLTP schema, an incremental ETL pipeline with a tested data-quality framework, a Kimball star-schema warehouse, seven read-only BI dashboards, six decision-intelligence modules (forecasting, supplier risk, service-level prediction, inventory optimization, scenario simulation, route/cost optimization), and a verification-first analytics copilot.
 
-**Status: v1.0 — feature-complete.** Full write-up: [`docs/ATLAS-v1.0-final-report.md`](docs/ATLAS-v1.0-final-report.md).
+**Status: v1.0 — feature-complete.** Full write-up: [`docs/ATLAS-v1.0-final-report.md`](docs/ATLAS-v1.0-final-report.md). The frontend has since had a full v2 visual redesign (dark enterprise command-center UI, unchanged engineering underneath) — see [`docs/ATLAS-v2-ui-review.md`](docs/ATLAS-v2-ui-review.md) and [`docs/ATLAS-v2-design-system.md`](docs/ATLAS-v2-design-system.md).
 
 ---
 
@@ -44,17 +44,19 @@ Every module is closed-form and standard-library-only — no machine learning, r
 
 ## Screenshots
 
-**Executive dashboard** — KPIs and revenue/margin trend, reconciled to the warehouse:
+v2 dark command-center UI — see [`docs/ATLAS-v2-ui-review.md`](docs/ATLAS-v2-ui-review.md) for the full set and what changed.
 
-![Executive dashboard](docs/screenshots/executive-dashboard.png)
+**Executive Command Center** — cross-module KPIs, revenue/margin trend, operational alerts:
 
-**Data Quality dashboard** — ETL run health, per-table DQ score, quarantine detail:
+![Executive Command Center](docs/screenshots/v2-executive-dashboard.png)
 
-![Data Quality dashboard](docs/screenshots/data-quality-dashboard.png)
+**Supply Chain Map** — warehouse network by real region, supplier risk watch:
 
-**Analytics Copilot** — an answer with citation, source endpoint, and model/ETL-run lineage:
+![Supply Chain Map](docs/screenshots/v2-supply-chain-map.png)
 
-![Analytics Copilot](docs/screenshots/analytics-copilot.png)
+**Analytics Copilot** — a verification-first workspace; every answer is retrieved, then independently verified before render:
+
+![Analytics Copilot](docs/screenshots/v2-copilot.png)
 
 ## Quick start
 

@@ -152,11 +152,21 @@ def test_forecast_experiments_lists_seeded_backtests(client, olap_engine, seed_r
     assert body[0]["n_observations"] == 30
 
 
-def test_planning_dashboard_rejects_executive_role(client, seed_run):
+def test_planning_dashboard_rejects_operations_analyst_role(client, seed_run):
+    resp = client.get(
+        "/api/v1/dashboards/planning/forecast/summary",
+        headers={"X-Atlas-Role": "operations_analyst"},
+    )
+    assert resp.status_code == 403
+
+
+def test_planning_dashboard_allows_executive(client, seed_run):
+    # executive was added to this gate for the v2 executive dashboard,
+    # which surfaces forecast accuracy alongside other modules' KPIs.
     resp = client.get(
         "/api/v1/dashboards/planning/forecast/summary", headers={"X-Atlas-Role": "executive"}
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 200
 
 
 def test_planning_dashboard_allows_administrator(client, seed_run):

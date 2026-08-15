@@ -20,7 +20,13 @@ from sqlalchemy.engine import Connection
 from app.api.cache import cache_key, get_cached, set_cached
 from app.api.deps import get_current_etl_run_id, get_olap_connection
 from app.api.schemas import PageEnvelope
-from app.core.security import ADMINISTRATOR, SUPPLY_PLANNER, require_role
+from app.core.security import (
+    ADMINISTRATOR,
+    EXECUTIVE,
+    OPERATIONS_ANALYST,
+    SUPPLY_PLANNER,
+    require_role,
+)
 
 router = APIRouter(prefix="/api/v1/dashboards/planning/supplier-risk", tags=["planning"])
 
@@ -63,7 +69,8 @@ class SupplierRiskRow(BaseModel):
 @router.get("/summary", response_model=SupplierRiskSummary)
 def get_supplier_risk_summary(
     conn: Connection = Depends(get_olap_connection),
-    _role: str = Depends(require_role(SUPPLY_PLANNER, ADMINISTRATOR)),
+    # EXECUTIVE added (v2 redesign) -- see forecast.py's identical note.
+    _role: str = Depends(require_role(EXECUTIVE, SUPPLY_PLANNER, ADMINISTRATOR)),
 ) -> SupplierRiskSummary:
     etl_run_id = get_current_etl_run_id(conn)
     key = cache_key("supplier_risk_summary", etl_run_id)
@@ -116,7 +123,10 @@ def get_supplier_risk_detail(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     conn: Connection = Depends(get_olap_connection),
-    _role: str = Depends(require_role(SUPPLY_PLANNER, ADMINISTRATOR)),
+    # EXECUTIVE, OPERATIONS_ANALYST added (v2 redesign) -- the new supply-chain
+    # command view (ops-facing) reads top-risk suppliers here; see forecast.py's
+    # identical note for the widening rationale.
+    _role: str = Depends(require_role(EXECUTIVE, OPERATIONS_ANALYST, SUPPLY_PLANNER, ADMINISTRATOR)),
 ) -> PageEnvelope[SupplierRiskRow]:
     filter_clause = (
         "(:classification IS NULL OR risk_classification = :classification) "

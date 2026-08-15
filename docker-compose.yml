@@ -62,6 +62,7 @@ services:
   frontend:
     build:
       context: ./frontend
+      target: dev
     container_name: atlas_frontend
     restart: unless-stopped
     env_file:

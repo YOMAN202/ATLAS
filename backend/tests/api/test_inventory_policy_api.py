@@ -232,12 +232,22 @@ def test_inventory_policy_sensitivity_reconciles_to_seeded_scenarios(client, ola
     assert body[1]["target_service_level"] == 0.95
 
 
-def test_inventory_policy_dashboard_rejects_executive_role(client, seed_run):
+def test_inventory_policy_dashboard_rejects_operations_analyst_role(client, seed_run):
+    resp = client.get(
+        "/api/v1/dashboards/planning/inventory-policy/summary",
+        headers={"X-Atlas-Role": "operations_analyst"},
+    )
+    assert resp.status_code == 403
+
+
+def test_inventory_policy_dashboard_allows_executive(client, seed_run):
+    # executive was added to this gate for the v2 executive dashboard,
+    # which surfaces the reorder-now count alongside other modules' KPIs.
     resp = client.get(
         "/api/v1/dashboards/planning/inventory-policy/summary",
         headers={"X-Atlas-Role": "executive"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 200
 
 
 def test_inventory_policy_dashboard_allows_administrator(client, seed_run):

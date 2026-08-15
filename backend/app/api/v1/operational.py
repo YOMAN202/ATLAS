@@ -41,6 +41,10 @@ class WarehouseCapacityRow(BaseModel):
     total_capacity_units: int
     quantity_on_hand: int
     capacity_utilization: float | None
+    # city/region added (v2 redesign) for the supply-chain network view --
+    # real dim_warehouse columns, not previously surfaced by this endpoint.
+    city: str | None
+    region_name: str | None
 
 
 class OperationalSummary(BaseModel):
@@ -128,13 +132,16 @@ def get_operational_summary(
     capacity_rows = conn.execute(
         text(
             "SELECT w.warehouse_key, w.warehouse_name, w.total_capacity_units, "
+            "w.city, r.region_name, "
             "COALESCE(SUM(f.quantity_on_hand), 0) AS on_hand "
             "FROM dim_warehouse w "
+            "JOIN dim_region r ON r.region_key = w.region_key "
             "LEFT JOIN fact_inventory_snapshot f "
             "  ON f.warehouse_key = w.warehouse_key AND f.snapshot_date_key = :latest_key "
             "WHERE w.is_current = 1 "
             "AND (:warehouse_key IS NULL OR w.warehouse_key = :warehouse_key) "
-            "GROUP BY w.warehouse_key, w.warehouse_name, w.total_capacity_units "
+            "GROUP BY w.warehouse_key, w.warehouse_name, w.total_capacity_units, "
+            "w.city, r.region_name "
             "ORDER BY w.warehouse_key"
         ),
         {"latest_key": latest_key, "warehouse_key": warehouse_key},
@@ -161,6 +168,8 @@ def get_operational_summary(
                 warehouse_key=r.warehouse_key,
                 warehouse_name=r.warehouse_name,
                 total_capacity_units=r.total_capacity_units,
+                city=r.city,
+                region_name=r.region_name,
                 quantity_on_hand=int(r.on_hand),
                 capacity_utilization=(
                     float(r.on_hand) / float(r.total_capacity_units)

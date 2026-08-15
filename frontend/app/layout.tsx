@@ -1,23 +1,27 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 
-import { Nav } from "@/components/nav";
 import { RoleProvider } from "@/lib/role-context";
 
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "ATLAS",
-  description: "Enterprise Supply Chain Intelligence Platform",
+  title: "ATLAS — Enterprise Supply Chain Intelligence",
+  description:
+    "A monitor-predict-decide supply chain intelligence platform: real-time dashboards, six decision-intelligence modules, and a verification-first analytics copilot.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-        <RoleProvider>
-          <Nav />
-          <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
-        </RoleProvider>
+    <html lang="en" className={`${inter.variable} dark`}>
+      <body className="min-h-screen bg-page font-sans text-ink-primary antialiased">
+        <RoleProvider>{children}</RoleProvider>
       </body>
     </html>
   );

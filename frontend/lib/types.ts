@@ -148,6 +148,8 @@ export interface WarehouseCapacityRow {
   total_capacity_units: number;
   quantity_on_hand: number;
   capacity_utilization: number | null;
+  city: string | null;
+  region_name: string | null;
 }
 
 export interface OperationalSummary {
