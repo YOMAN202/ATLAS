@@ -44,16 +44,7 @@ echarts.use([
 // never cycled per filter); axis/split-line/text colors match
 // app/globals.css's --chart-gridline/--chart-baseline/ink tokens.
 echarts.registerTheme("atlas-dark", {
-  color: [
-    "#3987e5",
-    "#d95926",
-    "#199e70",
-    "#c98500",
-    "#d55181",
-    "#008300",
-    "#9085e9",
-    "#e66767",
-  ],
+  color: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"],
   backgroundColor: "transparent",
   textStyle: { color: "#c3c2b7" },
   title: { textStyle: { color: "#f5f5f4" }, subtextStyle: { color: "#898781" } },

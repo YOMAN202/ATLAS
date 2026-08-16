@@ -36,19 +36,18 @@ function EvidenceCard({ citation }: { citation: CopilotCitation }) {
   const lineage = [
     citation.source_forecast_model_id && `forecast v${citation.source_forecast_model_id}`,
     citation.source_supplier_model_id && `supplier v${citation.source_supplier_model_id}`,
-    citation.source_service_level_model_id && `service-level v${citation.source_service_level_model_id}`,
-    citation.source_inventory_policy_model_id && `inventory v${citation.source_inventory_policy_model_id}`,
+    citation.source_service_level_model_id &&
+      `service-level v${citation.source_service_level_model_id}`,
+    citation.source_inventory_policy_model_id &&
+      `inventory v${citation.source_inventory_policy_model_id}`,
   ].filter(Boolean);
 
   return (
     <div className="rounded-md border border-hairline bg-surface-inset p-3">
       <div className="flex items-center gap-1.5 font-mono text-2xs text-accent">
-        <Database className="h-3 w-3" />
-        [{citation.citation_id}] {citation.endpoint}
+        <Database className="h-3 w-3" />[{citation.citation_id}] {citation.endpoint}
       </div>
-      <div className="mt-1.5 text-2xs text-ink-secondary">
-        {citation.source_tables.join(", ")}
-      </div>
+      <div className="mt-1.5 text-2xs text-ink-secondary">{citation.source_tables.join(", ")}</div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {citation.model_name && (
           <span className="rounded bg-surface-2 px-1.5 py-0.5 text-2xs text-ink-secondary">
@@ -247,7 +246,8 @@ export default function CopilotPage() {
         if (err.status === 403) {
           message = "Your current role doesn't have access to the copilot. Switch roles above.";
         } else if (err.status === 503) {
-          message = "The copilot isn't configured yet (no LLM provider credential set on the backend).";
+          message =
+            "The copilot isn't configured yet (no LLM provider credential set on the backend).";
         } else if (err.status === 502) {
           // The backend passes through the real Gemini error text (see
           // app/api/v1/copilot.py's APIError handler) -- a provider-side

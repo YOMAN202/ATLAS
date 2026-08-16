@@ -114,7 +114,9 @@ export default function InventoryPolicyDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-headline font-semibold text-ink-primary">Planning — Inventory Optimization</h1>
+      <h1 className="text-headline font-semibold text-ink-primary">
+        Planning — Inventory Optimization
+      </h1>
 
       {summary.status === "loading" && <DashboardLoading />}
       {summary.status === "error" && <DashboardError error={summary.error} />}
@@ -181,10 +183,7 @@ export default function InventoryPolicyDashboardPage() {
                   {[...sensitivity.data]
                     .sort((a, b) => a.target_service_level - b.target_service_level)
                     .map((s) => (
-                      <tr
-                        key={s.target_service_level}
-                        className="border-t border-hairline"
-                      >
+                      <tr key={s.target_service_level} className="border-t border-hairline">
                         <td className="px-3 py-2 tabular-nums">
                           {(s.target_service_level * 100).toFixed(0)}%
                         </td>

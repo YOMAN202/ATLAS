@@ -7,7 +7,11 @@ const METRICS = [
   { value: "300", label: "tests passing", note: "zero known failures" },
   { value: "7", label: "live dashboards", note: "role-gated, read-only" },
   { value: "6", label: "decision-intelligence modules", note: "closed-form, no ML framework" },
-  { value: "100%", label: "claims verified pre-render", note: "copilot answers, deterministically" },
+  {
+    value: "100%",
+    label: "claims verified pre-render",
+    note: "copilot answers, deterministically",
+  },
 ];
 
 const PIPELINE = [
@@ -46,9 +50,9 @@ export default function LandingPage() {
             Monitor. Predict. Decide.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg text-ink-secondary">
-            ATLAS is an enterprise supply chain intelligence platform — a full simulation-to-decision
-            pipeline with real-time dashboards, six decision-intelligence modules, and an AI copilot
-            that never states a number it hasn&apos;t verified.
+            ATLAS is an enterprise supply chain intelligence platform — a full
+            simulation-to-decision pipeline with real-time dashboards, six decision-intelligence
+            modules, and an AI copilot that never states a number it hasn&apos;t verified.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link

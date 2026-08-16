@@ -74,8 +74,7 @@ export default function ExecutiveDashboardPage() {
   // new computation, just surfacing thresholds the underlying modules
   // already flag (High supplier risk, high stockout risk, reorder-now).
   const alerts = useMemo(() => {
-    const items: { icon: typeof AlertTriangle; label: string; tone: "warning" | "critical" }[] =
-      [];
+    const items: { icon: typeof AlertTriangle; label: string; tone: "warning" | "critical" }[] = [];
     if (supplierRisk.status === "ready" && supplierRisk.data.classification_breakdown.high > 0) {
       items.push({
         icon: ShieldAlert,
@@ -158,7 +157,9 @@ export default function ExecutiveDashboardPage() {
                   ? formatPercent(forecast.data.active_model.weighted_avg_mape)
                   : "—"
               }
-              note={forecast.status === "ready" ? forecast.data.active_model?.model_name : undefined}
+              note={
+                forecast.status === "ready" ? forecast.data.active_model?.model_name : undefined
+              }
             />
             <KpiCard
               label="Avg Supplier Risk"
@@ -176,7 +177,8 @@ export default function ExecutiveDashboardPage() {
             <KpiCard
               label="Stockout Risk (predicted)"
               value={
-                serviceLevel.status === "ready" && serviceLevel.data.avg_stockout_probability != null
+                serviceLevel.status === "ready" &&
+                serviceLevel.data.avg_stockout_probability != null
                   ? formatPercent(serviceLevel.data.avg_stockout_probability)
                   : "—"
               }
@@ -197,7 +199,9 @@ export default function ExecutiveDashboardPage() {
               <CardHeader>
                 <CardTitle>Revenue &amp; Margin Trend</CardTitle>
               </CardHeader>
-              <CardContent>{trendOption && <Chart option={trendOption} height={320} />}</CardContent>
+              <CardContent>
+                {trendOption && <Chart option={trendOption} height={320} />}
+              </CardContent>
             </Card>
 
             <Card>

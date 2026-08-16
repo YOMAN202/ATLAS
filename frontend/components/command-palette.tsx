@@ -56,7 +56,10 @@ export function CommandPalette({ open, onClose, links, onNavigate }: CommandPale
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-[15vh] animate-fade-in" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-[15vh] animate-fade-in"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-lg rounded-lg border border-hairline-strong bg-surface shadow-overlay animate-rise-in"
         onClick={(e) => e.stopPropagation()}

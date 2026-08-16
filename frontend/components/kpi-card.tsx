@@ -22,8 +22,7 @@ interface KpiCardProps {
 }
 
 function Delta({ value, direction, positiveIsUp = true }: DeltaProps) {
-  const isGood =
-    direction === "flat" ? null : direction === "up" ? positiveIsUp : !positiveIsUp;
+  const isGood = direction === "flat" ? null : direction === "up" ? positiveIsUp : !positiveIsUp;
   const Icon = direction === "up" ? TrendingUp : direction === "down" ? TrendingDown : Minus;
   return (
     <span

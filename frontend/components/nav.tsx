@@ -79,13 +79,19 @@ const SECTIONS: NavSection[] = [
   {
     label: "Forecasting",
     icon: LineChart,
-    links: [{ href: "/forecast", label: "Demand Forecast", roles: [SUPPLY_PLANNER, ADMINISTRATOR] }],
+    links: [
+      { href: "/forecast", label: "Demand Forecast", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
+    ],
   },
   {
     label: "Inventory",
     icon: Boxes,
     links: [
-      { href: "/inventory", label: "Inventory", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
+      {
+        href: "/inventory",
+        label: "Inventory",
+        roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR],
+      },
       {
         href: "/inventory-policy",
         label: "Inventory Policy",
@@ -97,14 +103,20 @@ const SECTIONS: NavSection[] = [
     label: "Suppliers",
     icon: Users,
     links: [
-      { href: "/supplier", label: "Supplier", roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR] },
+      {
+        href: "/supplier",
+        label: "Supplier",
+        roles: [OPERATIONS_ANALYST, EXECUTIVE, ADMINISTRATOR],
+      },
       { href: "/supplier-risk", label: "Supplier Risk", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
     ],
   },
   {
     label: "Scenarios",
     icon: Gauge,
-    links: [{ href: "/scenarios", label: "Scenario Simulation", roles: [SUPPLY_PLANNER, ADMINISTRATOR] }],
+    links: [
+      { href: "/scenarios", label: "Scenario Simulation", roles: [SUPPLY_PLANNER, ADMINISTRATOR] },
+    ],
   },
   {
     label: "Optimization",

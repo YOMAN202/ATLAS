@@ -36,7 +36,15 @@ function formatDelta(delta: number, digits = 4): string {
   return `${sign}${delta.toFixed(digits)}`;
 }
 
-function DeltaBadge({ delta, higherIsBad, digits = 4 }: { delta: number; higherIsBad: boolean; digits?: number }) {
+function DeltaBadge({
+  delta,
+  higherIsBad,
+  digits = 4,
+}: {
+  delta: number;
+  higherIsBad: boolean;
+  digits?: number;
+}) {
   const tone = deltaTone(delta, higherIsBad);
   return (
     <span
@@ -88,7 +96,8 @@ function ComparisonCard({ s }: { s: ScenarioResultDetail }) {
             {s.scenario_name}
           </CardTitle>
           <p className="mt-0.5 text-2xs text-ink-muted">
-            {SCENARIO_TYPE_LABEL[s.scenario_type] ?? s.scenario_type} · {s.n_pairs_evaluated.toLocaleString()} pairs evaluated
+            {SCENARIO_TYPE_LABEL[s.scenario_type] ?? s.scenario_type} ·{" "}
+            {s.n_pairs_evaluated.toLocaleString()} pairs evaluated
           </p>
         </div>
         <span className="rounded-full bg-accent-subtle px-2.5 py-0.5 text-2xs font-medium text-accent">
@@ -195,7 +204,10 @@ export default function ScenarioPlannerPage() {
       yAxis: {
         type: "value",
         name: "Inventory Investment ($)",
-        axisLabel: { formatter: (v: number) => `$${(v / 1_000_000).toFixed(1)}M`, color: "#898781" },
+        axisLabel: {
+          formatter: (v: number) => `$${(v / 1_000_000).toFixed(1)}M`,
+          color: "#898781",
+        },
         splitLine: { lineStyle: { color: "#2c2c2a" } },
       },
       series: [
@@ -214,9 +226,9 @@ export default function ScenarioPlannerPage() {
       <div>
         <h1 className="text-headline font-semibold text-ink-primary">Scenario Simulation</h1>
         <p className="mt-1 text-xs text-ink-muted">
-          A curated library of precomputed what-if scenarios, each recomputing Modules A/C/D/B&apos;s
-          own frozen formulas over perturbed, never-persisted inputs. Select up to 5 for a
-          side-by-side impact comparison.
+          A curated library of precomputed what-if scenarios, each recomputing Modules
+          A/C/D/B&apos;s own frozen formulas over perturbed, never-persisted inputs. Select up to 5
+          for a side-by-side impact comparison.
         </p>
       </div>
 

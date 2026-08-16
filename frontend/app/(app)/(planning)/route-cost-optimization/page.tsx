@@ -104,7 +104,9 @@ export default function RouteCostOptimizationDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-headline font-semibold text-ink-primary">Planning — Route &amp; Cost Optimization</h1>
+      <h1 className="text-headline font-semibold text-ink-primary">
+        Planning — Route &amp; Cost Optimization
+      </h1>
       <p className="text-xs text-ink-muted">
         Deterministic vehicle right-sizing and shipment-consolidation heuristics over real carrier
         and shipment data — no external optimization engine. Right-sizing has provable zero

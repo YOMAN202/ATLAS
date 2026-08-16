@@ -102,7 +102,9 @@ export default function ServiceLevelDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-headline font-semibold text-ink-primary">Planning — Service-Level Prediction</h1>
+      <h1 className="text-headline font-semibold text-ink-primary">
+        Planning — Service-Level Prediction
+      </h1>
 
       {summary.status === "loading" && <DashboardLoading />}
       {summary.status === "error" && <DashboardError error={summary.error} />}

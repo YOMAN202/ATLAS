@@ -126,7 +126,9 @@ def get_supplier_risk_detail(
     # EXECUTIVE, OPERATIONS_ANALYST added (v2 redesign) -- the new supply-chain
     # command view (ops-facing) reads top-risk suppliers here; see forecast.py's
     # identical note for the widening rationale.
-    _role: str = Depends(require_role(EXECUTIVE, OPERATIONS_ANALYST, SUPPLY_PLANNER, ADMINISTRATOR)),
+    _role: str = Depends(
+        require_role(EXECUTIVE, OPERATIONS_ANALYST, SUPPLY_PLANNER, ADMINISTRATOR)
+    ),
 ) -> PageEnvelope[SupplierRiskRow]:
     filter_clause = (
         "(:classification IS NULL OR risk_classification = :classification) "

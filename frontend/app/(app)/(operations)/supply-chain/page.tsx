@@ -114,10 +114,9 @@ export default function SupplyChainMapPage() {
       <div>
         <h1 className="text-headline font-semibold text-ink-primary">Supply Chain Map</h1>
         <p className="mt-1 text-xs text-ink-muted">
-          Live warehouse network and supplier risk, in one view — real capacity utilization by
-          site and the highest-risk suppliers currently feeding it. City/region are actual
-          dim_warehouse attributes, not placed on a geographic map (this dataset has no
-          coordinates).
+          Live warehouse network and supplier risk, in one view — real capacity utilization by site
+          and the highest-risk suppliers currently feeding it. City/region are actual dim_warehouse
+          attributes, not placed on a geographic map (this dataset has no coordinates).
         </p>
       </div>
 
@@ -173,9 +172,7 @@ export default function SupplyChainMapPage() {
             {supplierRisk.status === "loading" && <DashboardLoading />}
             {supplierRisk.status === "error" && <DashboardError error={supplierRisk.error} />}
             {supplierRisk.status === "ready" &&
-              supplierRisk.data.data.map((s) => (
-                <SupplierRiskRowItem key={s.supplier_key} s={s} />
-              ))}
+              supplierRisk.data.data.map((s) => <SupplierRiskRowItem key={s.supplier_key} s={s} />)}
           </CardContent>
         </Card>
       </div>
